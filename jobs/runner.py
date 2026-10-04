@@ -164,17 +164,25 @@ def _persist_job_db(
                 )
                 db.add(v)
 
-            # Record build job
-            db_job = DBBuildJob(
-                id=job.job_id,
-                project_id=job.project_id,
-                version_number=job.version,
-                status=job.status,
-                logs=job.logs,
-                error_message=job.error_message,
-                repair_attempts=repair_attempts,
-                artifact_url=artifact_path
-            )
-            db.add(db_job)
+            # Record or update build job
+            db_job = db.query(DBBuildJob).filter(DBBuildJob.id == job.job_id).first()
+            if not db_job:
+                db_job = DBBuildJob(
+                    id=job.job_id,
+                    project_id=job.project_id,
+                    version_number=job.version,
+                    status=job.status,
+                    logs=job.logs,
+                    error_message=job.error_message,
+                    repair_attempts=repair_attempts,
+                    artifact_url=artifact_path
+                )
+                db.add(db_job)
+            else:
+                db_job.status = job.status
+                db_job.logs = job.logs
+                db_job.error_message = job.error_message
+                db_job.repair_attempts = repair_attempts
+                db_job.artifact_url = artifact_path
     except Exception as e:
         logger.error(f"Failed to persist job record to database: {e}")

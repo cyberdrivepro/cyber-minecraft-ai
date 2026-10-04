@@ -29,6 +29,12 @@ class SecretRedactingFormatter(logging.Formatter):
 
 def get_logger(name: str = "cybermod") -> logging.Logger:
     """Return a configured logger instance."""
+    if hasattr(sys.stdout, "reconfigure"):
+        try:
+            sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+
     logger = logging.getLogger(name)
     if not logger.handlers:
         level = getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO)
