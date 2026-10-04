@@ -22,7 +22,18 @@ templates = Jinja2Templates(directory=str(templates_path))
 async def dashboard_page(request: Request):
     """Render Cyber Minecraft AI control panel."""
     with get_db() as db:
-        projects = db.query(Project).order_by(Project.updated_at.desc()).limit(15).all()
+        raw_projects = db.query(Project).order_by(Project.updated_at.desc()).limit(15).all()
+        projects = [
+            {
+                "id": p.id,
+                "name": p.name,
+                "edition": p.edition,
+                "current_version": p.current_version,
+                "status": p.status,
+                "updated_at": p.updated_at
+            }
+            for p in raw_projects
+        ]
         total_projects = db.query(Project).count()
         bedrock_count = db.query(Project).filter(Project.edition == "bedrock").count()
         fabric_count = db.query(Project).filter(Project.edition == "fabric").count()
