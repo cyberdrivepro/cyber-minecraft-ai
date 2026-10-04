@@ -1,0 +1,33 @@
+# Environment & Secrets
+.env
+*.env
+*.token
+
+# Data & Output Storage
+data/
+outputs/
+*.db
+*.sqlite3
+
+# Python Cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+
+# Testing & Logs
+.pytest_cache/
+*.log
+build.log
+
+# Build artifacts
+*.mcaddon
+*.jar
+staging_bedrock/
+staging_fabric/
+build/
+.gradle/

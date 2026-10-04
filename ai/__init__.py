@@ -1,0 +1,57 @@
+"""AI Module for Cyber Minecraft AI Mod Builder."""
+from ai.schemas import (
+    ProjectSpec,
+    Item,
+    Recipe,
+    Ability,
+    Block,
+    Mob,
+    Boss,
+    Projectile,
+    Structure,
+    Biome,
+    Sound,
+    Texture,
+    Model,
+    BedrockConfig,
+    JavaConfig,
+)
+from ai.model_manager import ModelManager, model_manager
+from ai.planner import ModPlanner, planner, clean_and_repair_json
+from ai.prompt_engine import (
+    SYSTEM_PLANNER_PROMPT,
+    SYSTEM_EDITOR_PROMPT,
+    SYSTEM_REPAIR_PROMPT,
+    build_planning_prompt,
+    build_edit_prompt,
+    build_repair_prompt,
+)
+
+__all__ = [
+    "ProjectSpec",
+    "Item",
+    "Recipe",
+    "Ability",
+    "Block",
+    "Mob",
+    "Boss",
+    "Projectile",
+    "Structure",
+    "Biome",
+    "Sound",
+    "Texture",
+    "Model",
+    "BedrockConfig",
+    "JavaConfig",
+    "ModelManager",
+    "model_manager",
+    "ModPlanner",
+    "planner",
+    "clean_and_repair_json",
+    "SYSTEM_PLANNER_PROMPT",
+    "SYSTEM_EDITOR_PROMPT",
+    "SYSTEM_REPAIR_PROMPT",
+    "build_planning_prompt",
+    "build_edit_prompt",
+    "build_repair_prompt",
+]
