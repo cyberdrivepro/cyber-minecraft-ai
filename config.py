@@ -2,7 +2,7 @@
 import os
 import secrets
 from pathlib import Path
-from typing import Optional, Literal
+from typing import Optional, Literal, Dict, Any
 
 try:
     from pydantic_settings import BaseSettings
@@ -64,6 +64,17 @@ class Settings(BaseSettings):
     MAX_REPAIR_ATTEMPTS: int = int(os.environ.get("MAX_REPAIR_ATTEMPTS", "3"))
     MAX_BUILD_SECONDS: int = int(os.environ.get("MAX_BUILD_SECONDS", "180"))
     
+    # Cyber Host (Minecraft server hosting)
+    MAX_SERVERS_PER_OWNER: int = int(os.environ.get("MAX_SERVERS_PER_OWNER", "10"))
+    MAX_CONCURRENT_SERVERS: int = int(os.environ.get("MAX_CONCURRENT_SERVERS", "2"))
+    SERVER_PORT_MIN: int = int(os.environ.get("SERVER_PORT_MIN", "25565"))
+    SERVER_PORT_MAX: int = int(os.environ.get("SERVER_PORT_MAX", "25600"))
+    SERVER_RAM_MB: int = int(os.environ.get("SERVER_RAM_MB", "1024"))
+    MAX_BACKUPS_PER_SERVER: int = int(os.environ.get("MAX_BACKUPS_PER_SERVER", "5"))
+    SERVER_JAR_MAX_MB: int = int(os.environ.get("SERVER_JAR_MAX_MB", "300"))
+    SERVER_IDLE_SHUTDOWN_MINUTES: int = int(os.environ.get("SERVER_IDLE_SHUTDOWN_MINUTES", "0"))
+    SERVER_PUBLIC_HOST: Optional[str] = os.environ.get("SERVER_PUBLIC_HOST", None)
+    
     # Storage & Paths
     DATA_DIR: Path = Path(os.environ.get("DATA_DIR", "./data")).resolve()
     OUTPUT_DIR: Path = Path(os.environ.get("OUTPUT_DIR", "./data/outputs")).resolve()
@@ -83,9 +94,19 @@ class Settings(BaseSettings):
         self.DATA_DIR.mkdir(parents=True, exist_ok=True)
         self.OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
         (self.DATA_DIR / "users").mkdir(parents=True, exist_ok=True)
+        (self.DATA_DIR / "servers").mkdir(parents=True, exist_ok=True)
         if not self.DATABASE_URL:
             db_path = (self.DATA_DIR / "cyber_mod.db").resolve()
             # Standard sqlite path format
             self.DATABASE_URL = f"sqlite:///{db_path}"
+
+# Supported server software catalog (software -> versions)
+SERVER_SOFTWARE: Dict[str, Any] = {
+    "paper": {"label": "Paper (plugins)", "versions": ["1.21.4", "1.21.1", "1.20.6", "1.20.4", "1.8.8"]},
+    "vanilla": {"label": "Vanilla", "versions": ["1.21.4", "1.21.1", "1.20.4", "1.19.4", "1.16.5"]},
+    "fabric": {"label": "Fabric (mods)", "versions": ["1.21.4", "1.21.1", "1.20.4", "1.20.1", "1.19.2"]},
+    "forge": {"label": "Forge (mods)", "versions": ["1.21.4", "1.20.4", "1.19.2", "1.18.2", "1.12.2"]},
+    "bedrock": {"label": "Bedrock Dedicated", "versions": ["1.21.50", "1.21.40", "1.20.60"]},
+}
 
 settings = Settings()

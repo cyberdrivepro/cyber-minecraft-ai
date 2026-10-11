@@ -63,6 +63,8 @@ class JobManager:
         self._running = False
         for task in self._workers:
             task.cancel()
+        if self._workers:
+            await asyncio.gather(*self._workers, return_exceptions=True)
         self._workers.clear()
         logger.info("Stopped build workers.")
 

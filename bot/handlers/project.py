@@ -200,6 +200,41 @@ async def view_project(message: Message):
     )
     await message.answer(text, parse_mode="Markdown", reply_markup=get_project_actions_keyboard(proj.id))
 
+@router.callback_query(F.data.startswith("act_versions_"))
+async def view_project_versions(callback: CallbackQuery):
+    """Show the immutable version history of a project."""
+    project_id = callback.data.replace("act_versions_", "").strip()
+    user_id = str(callback.from_user.id)
+
+    with get_db() as db:
+        proj = db.query(Project).filter(Project.id == project_id, Project.user_id == user_id).first()
+        if not proj:
+            await callback.message.edit_text(f"Project `{project_id}` not found.", parse_mode="Markdown")
+            await callback.answer()
+            return
+        versions = (
+            db.query(ProjectVersion)
+            .filter(ProjectVersion.project_id == project_id)
+            .order_by(ProjectVersion.version_number.desc())
+            .all()
+        )
+
+    if not versions:
+        text = f"🗂 *VERSION HISTORY for {proj.name}*\n\nNo recorded versions yet. Use `/build {project_id}` first."
+    else:
+        text = f"🗂 *VERSION HISTORY for {proj.name}* (`{project_id}`)\n\n"
+        for v in versions:
+            status_icon = "✅" if v.build_status == "success" else "❌"
+            summary = v.change_summary or "Mod update"
+            text += (
+                f"{status_icon} *v{v.version_number}* — `{v.build_status}`\n"
+                f"   {summary[:80]}\n\n"
+            )
+        text += f"Use `/edit {project_id}` to create the next version."
+
+    await callback.message.edit_text(text, parse_mode="Markdown", reply_markup=get_project_actions_keyboard(project_id))
+    await callback.answer()
+
 @router.callback_query(F.data.startswith("act_delete_"))
 async def delete_project_callback(callback: CallbackQuery):
     """Delete a mod project."""
