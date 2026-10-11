@@ -26,6 +26,7 @@ async def dashboard_page(request: Request):
         projects = [
             {
                 "id": p.id,
+                "user_id": p.user_id,
                 "name": p.name,
                 "edition": p.edition,
                 "current_version": p.current_version,
@@ -54,7 +55,8 @@ async def dashboard_page(request: Request):
             "fabric_count": fabric_count,
             "total_builds": total_builds,
             "success_builds": success_builds,
-            "queue_length": queue_len
+            "queue_length": queue_len,
+            "max_concurrent": job_manager.max_concurrent
         }
     )
 
@@ -141,6 +143,7 @@ async def get_system_metrics():
         "ram_percent": vm.percent,
         "disk_total_mb": int(disk.total / (1024 * 1024)),
         "disk_free_mb": int(disk.free / (1024 * 1024)),
+        "queue_length": job_manager.queue.qsize(),
         "hardware": model_manager.get_hardware_status()
     }
 

@@ -257,8 +257,8 @@
             </div>
             <div class="card card-accent-green">
                 <div class="card-title">Hardware / Memory</div>
-                <div class="card-value">{{ ai.device | upper }}</div>
-                <div class="card-subtext">RAM: {{ ai.ram_used_mb }} / {{ ai.ram_total_mb }} MB ({{ ai.ram_percent }}%)</div>
+                <div class="card-value" id="hw-device">{{ ai.device | upper }}</div>
+                <div class="card-subtext" id="hw-ram">RAM: {{ ai.ram_used_mb }} / {{ ai.ram_total_mb }} MB ({{ ai.ram_percent }}%)</div>
             </div>
             <div class="card card-accent-pink">
                 <div class="card-title">Projects Created</div>
@@ -268,7 +268,7 @@
             <div class="card card-accent-purple">
                 <div class="card-title">Build Pipeline</div>
                 <div class="card-value">{{ total_builds }}</div>
-                <div class="card-subtext">Queue: {{ queue_length }} | Success: {{ success_builds }}</div>
+                <div class="card-subtext">Queue: <span id="queue-length">{{ queue_length }}</span> | Success: {{ success_builds }}</div>
             </div>
         </div>
 
@@ -295,7 +295,7 @@
                                     <td><span class="tag tag-{{ p.edition }}">{{ p.edition | upper }}</span></td>
                                     <td>v{{ p.current_version }}</td>
                                     <td><span class="tag tag-success">{{ p.status }}</span></td>
-                                    <td>{{ p.updated_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                                    <td>{{ p.updated_at.strftime('%Y-%m-%d %H:%M') }}{% if p.status == 'ready' %}<br><a class="btn btn-sm" style="margin-top:4px" href="/api/download/{{ p.user_id }}/{{ p.id }}/{{ p.current_version }}">⬇ Download</a>{% endif %}</td>
                                 </tr>
                                 {% endfor %}
                             {% else %}
@@ -328,8 +328,8 @@
 
                 <div class="section-title">⚡ Build Queue</div>
                 <div class="card">
-                    <p style="font-size: 0.85rem; margin-bottom: 6px;">Pending In Queue: <strong>{{ queue_length }}</strong></p>
-                    <p style="font-size: 0.85rem;">Max Concurrency: <strong>1</strong></p>
+                    <p style="font-size: 0.85rem; margin-bottom: 6px;">Pending In Queue: <strong><span id="queue-length-2">{{ queue_length }}</span></strong></p>
+                    <p style="font-size: 0.85rem;">Max Concurrency: <strong>{{ max_concurrent }}</strong></p>
                 </div>
             </div>
         </div>
@@ -363,6 +363,22 @@ Waiting for user Telegram commands...
                 })
                 .catch(err => alert("Error: " + err));
         }
+
+        // Live-refresh hardware and queue metrics every 5 seconds
+        async function refreshMetrics() {
+            try {
+                const res = await fetch('/api/system');
+                if (!res.ok) return;
+                const m = await res.json();
+                const ram = document.getElementById('hw-ram');
+                if (ram) ram.textContent = `RAM: ${m.ram_used_mb} / ${m.ram_total_mb} MB (${m.ram_percent}%)`;
+                for (const id of ['queue-length', 'queue-length-2']) {
+                    const el = document.getElementById(id);
+                    if (el) el.textContent = m.queue_length;
+                }
+            } catch (err) { /* ignore transient polling errors */ }
+        }
+        setInterval(refreshMetrics, 5000);
     </script>
 </body>
 </html>

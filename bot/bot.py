@@ -51,13 +51,16 @@ async def start_telegram_bot() -> None:
 
 async def stop_telegram_bot() -> None:
     """Stop Telegram bot polling."""
-    global _bot_task, bot
+    global _bot_task, bot, dp
     if _bot_task:
         _bot_task.cancel()
         try:
             await _bot_task
         except asyncio.CancelledError:
             pass
+    _bot_task = None
     if bot:
         await bot.session.close()
+    bot = None
+    dp = None
     logger.info("Telegram bot service stopped.")

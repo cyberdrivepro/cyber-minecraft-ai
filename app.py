@@ -1,7 +1,6 @@
 """FastAPI application factory and lifespan manager."""
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
-from fastapi.staticfiles import StaticFiles
 from config import settings
 from logger import get_logger
 from storage.database import init_db

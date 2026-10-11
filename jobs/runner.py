@@ -22,6 +22,8 @@ async def execute_build_job(job: BuildJobItem) -> None:
     """Complete lifecycle execution of a build job."""
     proj_dir = storage.get_project_dir(job.user_id, job.project_id)
     proj_logger, file_handler = create_project_file_logger(proj_dir)
+    spec: Optional[ProjectSpec] = None
+    repair_attempts = 0
     
     try:
         proj_logger.info(f"=== Starting Build Job {job.job_id} for Project {job.project_id} (v{job.version}) ===")
@@ -58,7 +60,6 @@ async def execute_build_job(job: BuildJobItem) -> None:
         proj_logger.info(build_result.logs)
 
         # 4. Validation & Automatic Repair Loop
-        repair_attempts = 0
         while not build_result.success and repair_attempts < settings.MAX_REPAIR_ATTEMPTS:
             repair_attempts += 1
             stage_msg = f"🔧 Repairing automatically... (Attempt {repair_attempts}/{settings.MAX_REPAIR_ATTEMPTS})"
@@ -116,6 +117,7 @@ async def execute_build_job(job: BuildJobItem) -> None:
         logger.error(f"Error executing build job {job.job_id}: {e}", exc_info=True)
         job.error_message = str(e)
         await job_manager.update_job_stage(job, JobStatus.FAILED, f"❌ Build failed: {str(e)[:100]}")
+        _persist_job_db(job, spec, False, None, repair_attempts)
     finally:
         proj_logger.removeHandler(file_handler)
         file_handler.close()

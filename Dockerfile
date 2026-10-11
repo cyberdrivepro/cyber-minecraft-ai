@@ -1,5 +1,6 @@
 # syntax=docker/dockerfile:1
-FROM python:3.11-slim
+# slim-trixie pinned: ships openjdk-21 in the main archive (needed for Fabric release 21 builds)
+FROM python:3.11-slim-trixie
 
 # Prevent interactive prompts
 ENV DEBIAN_FRONTEND=noninteractive
@@ -8,9 +9,9 @@ ENV PORT=7860
 ENV HOME=/home/user
 ENV PATH="/home/user/.local/bin:${PATH}"
 
-# Install Java 21 (for Fabric builds), git, curl, unzip
+# Install Java 21 (required by Fabric builds targeting release 21), git, curl, unzip
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    openjdk-17-jdk-headless \
+    openjdk-21-jdk-headless \
     git \
     curl \
     unzip \
