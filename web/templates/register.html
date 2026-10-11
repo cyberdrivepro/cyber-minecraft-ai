@@ -1,0 +1,44 @@
+{% extends "layout.html" %}
+{% block title %}Register — {{ APP_NAME }}{% endblock %}
+{% block content %}
+<div style="max-width:400px;margin:8vh auto;">
+    <div class="card" style="padding:30px;">
+        <div class="brand" style="padding:0 0 16px;justify-content:center">
+            <div class="brand-logo">C</div>
+            <div>
+                <div class="brand-name">CYBER MINECRAFT AI</div>
+                <div class="brand-sub">{{ APP_SUBTITLE }}</div>
+            </div>
+        </div>
+        <h2 style="font-size:18px;margin-bottom:18px;">Create your account</h2>
+        <div class="field"><label>Username</label><input type="text" id="username" autocomplete="username"></div>
+        <div class="field"><label>Display name (optional)</label><input type="text" id="first_name"></div>
+        <div class="field"><label>Password (min 8 characters)</label><input type="password" id="password" autocomplete="new-password"
+            onkeydown="if(event.key==='Enter')doRegister()"></div>
+        <button class="btn primary" style="width:100%" id="regBtn" onclick="doRegister()">Register</button>
+        <p class="muted" style="font-size:12.5px;margin-top:14px;text-align:center">
+            Already registered? <a href="/login">Sign in</a>
+        </p>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+async function doRegister() {
+    const btn = document.getElementById('regBtn');
+    btn.disabled = true;
+    try {
+        await api('/api/auth/register', {method: 'POST', body: JSON.stringify({
+            username: document.getElementById('username').value,
+            first_name: document.getElementById('first_name').value,
+            password: document.getElementById('password').value
+        })});
+        toast('Account created — welcome!');
+        window.location.href = '/';
+    } catch (e) {
+        toast(e.message, 'err');
+        btn.disabled = false;
+    }
+}
+</script>
+{% endblock %}

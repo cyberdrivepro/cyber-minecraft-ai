@@ -1,0 +1,105 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Lint & Test (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.11", "3.12"]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          # ML extras (torch/transformers) are lazy imports; skip them in CI
+          grep -vE '^(torch|transformers|accelerate|safetensors|huggingface-hub)' requirements.txt > /tmp/ci-requirements.txt
+          pip install -r /tmp/ci-requirements.txt pytest pytest-asyncio flake8
+
+      - name: Critical flake8 gate (syntax errors & undefined names)
+        run: |
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics --exclude=.git,__pycache__,data,.venv
+
+      - name: Style flake8 (non-blocking)
+        run: |
+          flake8 . --count --exit-zero --max-complexity=15 --max-line-length=140 --statistics --exclude=.git,__pycache__,data,.venv
+
+      - name: Pytest suite
+        env:
+          AUTH_REQUIRED: "true"
+        run: pytest tests/ -v
+
+      - name: Shell installer syntax
+        run: |
+          bash -n scripts/install.sh
+          bash -n scripts/uninstall.sh
+          python3 -m py_compile scripts/cyber-minecraft-ai scripts/generate_objectives.py
+
+      - name: CLI smoke test (doctor)
+        run: python3 scripts/cyber-minecraft-ai doctor
+
+      - name: Objective registry integrity
+        run: python3 scripts/generate_objectives.py --check
+
+  windows:
+    name: Windows installer checks
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: PowerShell syntax check
+        shell: pwsh
+        run: |
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            (Resolve-Path ./scripts/install.ps1), [ref]$null, [ref]$errors) | Out-Null
+          if ($errors.Count -gt 0) {
+            $errors | ForEach-Object { Write-Error $_.Message }
+            exit 1
+          }
+          Write-Host "install.ps1 parses cleanly"
+
+      - name: Installer dry-run prerequisites present
+        shell: pwsh
+        run: |
+          python --version
+          Write-Host "Windows runner has python; full installer run covered by manual smoke test"
+
+  docker:
+    name: Docker build
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Validate compose file
+        run: docker compose config --quiet
+
+      - name: Build image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: false
+          tags: cyber-minecraft-ai:ci-test

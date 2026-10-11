@@ -1,0 +1,50 @@
+{% extends "layout.html" %}
+{% block title %}System Diagnostics — {{ APP_NAME }}{% endblock %}
+{% block nav_system %}active{% endblock %}
+{% block pagetitle %}System Diagnostics{% endblock %}
+{% block content %}
+<div class="grid cols-3" style="margin-bottom:18px">
+    <div class="card"><div class="stat-value" id="cpuVal">—</div><div class="stat-label">CPU usage</div></div>
+    <div class="card"><div class="stat-value" id="ramVal">—</div><div class="stat-label">Memory usage</div></div>
+    <div class="card"><div class="stat-value" id="diskVal">—</div><div class="stat-label">Disk usage</div></div>
+</div>
+<div class="grid cols-2">
+    <div class="card">
+        <h3>Host details</h3>
+        <table class="list" id="sysTable"><tbody>
+            <tr><td class="muted">Platform</td><td class="mono">{{ platform }}</td></tr>
+            <tr><td class="muted">Python</td><td class="mono">{{ python_version }}</td></tr>
+            <tr><td class="muted">Data directory</td><td class="mono">{{ data_dir }}</td></tr>
+            <tr><td class="muted">Database</td><td class="mono">{{ database_url }}</td></tr>
+            <tr><td class="muted">Java runtime</td><td class="mono" id="javaCell">{{ java_available }}{% if java_path %} ({{ java_path }}){% endif %}</td></tr>
+            <tr><td class="muted">AI device</td><td class="mono">{{ ai.device }}{% if ai.gpu_name %} — {{ ai.gpu_name }}{% endif %}</td></tr>
+        </tbody></table>
+    </div>
+    <div class="card">
+        <h3>Services</h3>
+        <table class="list"><tbody>
+            <tr><td class="muted">Build queue</td><td>{{ queue_length }} job(s) waiting, {{ max_concurrent }} worker(s)</td></tr>
+            <tr><td class="muted">Telegram bot</td><td>{{ 'configured (polling)' if telegram_configured else 'not configured — set TELEGRAM_BOT_TOKEN' }}</td></tr>
+            <tr><td class="muted">Local AI model</td><td>{{ 'loaded' if ai.is_loaded else 'unloaded (loads on demand)' }}</td></tr>
+            <tr><td class="muted">Scheduler</td><td>durable DB-backed (30s tick)</td></tr>
+        </tbody></table>
+        <div class="row" style="margin-top:12px">
+            <a class="btn small" href="/health" target="_blank" style="text-decoration:none">Open /health JSON</a>
+            <a class="btn small" href="/api/system" target="_blank" style="text-decoration:none">Open /api/system JSON</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+async function refresh() {
+    try {
+        const s = await api('/api/system');
+        document.getElementById('cpuVal').textContent = s.cpu_percent.toFixed(0) + '%';
+        document.getElementById('ramVal').textContent = s.ram_percent.toFixed(0) + '%';
+        document.getElementById('diskVal').textContent = (100 - s.disk_free_mb / s.disk_total_mb * 100).toFixed(0) + '%';
+    } catch (e) {}
+}
+refresh(); setInterval(refresh, 8000);
+</script>
+{% endblock %}

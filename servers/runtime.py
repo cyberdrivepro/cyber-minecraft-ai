@@ -395,3 +395,89 @@ class JavaProcessRuntime(BaseRuntime):
         self._process.stdin.write(f"{command}\n".encode("utf-8"))
         await self._process.stdin.drain()
         return []
+
+
+class BedrockProcessRuntime(BaseRuntime):
+    """Runtime that drives a real Bedrock Dedicated Server binary (bedrock_server).
+
+    The BDS binary must be uploaded as a zip archive and extracted into the
+    server directory. Readiness is detected from the "Server started" log line
+    the official BDS binary prints after binding its UDP port.
+    """
+
+    ONLINE_MARKER = "Server started"
+    START_TIMEOUT_SECONDS = 60
+
+    def __init__(self, ctx: RuntimeContext, log: LogCallback):
+        super().__init__(ctx, log)
+        self._process: Optional[asyncio.subprocess.Process] = None
+        self._online = False
+
+    def _binary(self) -> Path:
+        system = platform.system()
+        if system == "Windows":
+            return self.ctx.server_dir / "bedrock_server.exe"
+        return self.ctx.server_dir / "bedrock_server"
+
+    async def start(self) -> None:
+        binary = self._binary()
+        if not binary.exists():
+            raise RuntimeError(
+                "bedrock_server binary is missing. Upload the official Bedrock Dedicated "
+                "Server zip on the server page first."
+            )
+        if platform.system() != "Windows":
+            binary.chmod(binary.stat().st_mode | 0o111)
+        await self._log(f"[{_ts()}] [cyber/INFO]: Spawning Bedrock server: {binary.name}")
+        self._process = await asyncio.create_subprocess_exec(
+            str(binary),
+            cwd=str(self.ctx.server_dir),
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT
+        )
+        try:
+            await asyncio.wait_for(self._wait_for_online(), timeout=self.START_TIMEOUT_SECONDS)
+        except asyncio.TimeoutError:
+            await self.stop()
+            raise RuntimeError(f"Bedrock server did not report ready within {self.START_TIMEOUT_SECONDS}s.")
+
+    async def _wait_for_online(self) -> None:
+        assert self._process and self._process.stdout
+        while True:
+            raw = await self._process.stdout.readline()
+            if not raw:
+                raise RuntimeError("Bedrock server process exited before becoming ready.")
+            line = raw.decode("utf-8", errors="replace").rstrip()
+            await self._log(line)
+            if self.ONLINE_MARKER in line:
+                self._online = True
+                return
+
+    async def stop(self) -> None:
+        if not self._process or self._process.returncode is not None:
+            return
+        try:
+            if self._process.stdin:
+                self._process.stdin.write(b"stop\n")
+                await self._process.stdin.drain()
+            await asyncio.wait_for(self._process.wait(), timeout=30)
+        except asyncio.TimeoutError:
+            self._process.terminate()
+            try:
+                await asyncio.wait_for(self._process.wait(), timeout=10)
+            except asyncio.TimeoutError:
+                self._process.kill()
+        self._online = False
+        await self._log(f"[{_ts()}] [cyber/INFO]: Bedrock server process stopped.")
+
+    @property
+    def is_alive(self) -> bool:
+        return bool(self._process and self._process.returncode is None)
+
+    async def send_command(self, command: str) -> List[str]:
+        if not self._process or not self._process.stdin:
+            return []
+        self._process.stdin.write(f"{command}\n".encode("utf-8"))
+        await self._process.stdin.drain()
+        return []

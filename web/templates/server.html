@@ -1,702 +1,653 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ server.name }} // CYBER HOST</title>
-    <style>
-        :root {
-            --bg-dark: #0a0c10;
-            --bg-card: #12161f;
-            --bg-card-hover: #19202c;
-            --border-color: #1e2838;
-            --text-main: #e2e8f0;
-            --text-muted: #94a3b8;
-            --cyber-blue: #00f0ff;
-            --cyber-pink: #ff0055;
-            --cyber-green: #00ff88;
-            --cyber-purple: #9d4edd;
-            --cyber-amber: #ffb020;
-        }
-
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
-        }
-
-        body {
-            background-color: var(--bg-dark);
-            color: var(--text-main);
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-        }
-
-        header {
-            background: linear-gradient(90deg, #0d1117, #161b22);
-            border-bottom: 1px solid var(--border-color);
-            padding: 1rem 2rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .brand {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .brand-logo {
-            font-size: 1.6rem;
-            background: -webkit-linear-gradient(45deg, var(--cyber-blue), var(--cyber-pink));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            font-weight: 900;
-            letter-spacing: 2px;
-        }
-
-        .container {
-            max-width: 1300px;
-            margin: 2rem auto;
-            padding: 0 1.5rem;
-            width: 100%;
-            flex: 1;
-        }
-
-        .card {
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            padding: 1.25rem;
-            position: relative;
-            overflow: hidden;
-            transition: border-color 0.2s;
-        }
-
-        .card:hover { border-color: var(--cyber-blue); }
-
-        .card-title {
-            font-size: 0.8rem;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 8px;
-        }
-
-        .card-accent-green { border-left: 4px solid var(--cyber-green); }
-        .card-accent-blue { border-left: 4px solid var(--cyber-blue); }
-        .card-accent-pink { border-left: 4px solid var(--cyber-pink); }
-        .card-accent-purple { border-left: 4px solid var(--cyber-purple); }
-
-        .back-link {
-            color: var(--cyber-blue);
-            text-decoration: none;
-            font-size: 0.9rem;
-        }
-
-        .back-link:hover { text-decoration: underline; }
-
-        .server-head {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            gap: 1.5rem;
-            margin-bottom: 1.5rem;
-            flex-wrap: wrap;
-        }
-
-        .server-title {
-            font-size: 1.7rem;
-            font-weight: 800;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            flex-wrap: wrap;
-        }
-
-        .tag {
-            padding: 4px 10px;
-            border-radius: 4px;
-            font-size: 0.75rem;
-            font-weight: 700;
-            text-transform: uppercase;
-        }
-
-        .tag-software { background: rgba(157, 78, 221, 0.2); color: var(--cyber-purple); }
-        .tag-offline { background: rgba(148, 163, 184, 0.15); color: var(--text-muted); }
-        .tag-queued { background: rgba(255, 176, 32, 0.15); color: var(--cyber-amber); }
-        .tag-preparing, .tag-starting, .tag-stopping { background: rgba(255, 176, 32, 0.15); color: var(--cyber-amber); }
-        .tag-online { background: rgba(0, 255, 136, 0.15); color: var(--cyber-green); }
-        .tag-error { background: rgba(255, 0, 85, 0.15); color: var(--cyber-pink); }
-
-        .status-detail { color: var(--text-muted); font-size: 0.9rem; margin-top: 6px; }
-
-        .address-box {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            background: #06080b;
-            border: 1px dashed var(--border-color);
-            border-radius: 8px;
-            padding: 10px 14px;
-            font-family: 'Consolas', 'Courier New', monospace;
-            font-size: 1rem;
-            color: var(--cyber-green);
-        }
-
-        .address-box .none { color: var(--text-muted); }
-
-        .power-btn {
-            border: none;
-            padding: 14px 26px;
-            border-radius: 8px;
-            font-size: 0.95rem;
-            font-weight: 700;
-            cursor: pointer;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            transition: transform 0.15s, opacity 0.15s;
-        }
-
-        .power-btn:hover { transform: translateY(-2px); }
-        .power-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
-        .btn-start { background: var(--cyber-green); color: #04140c; }
-        .btn-stop { background: var(--cyber-pink); color: #fff; }
-        .btn-restart { background: var(--cyber-amber); color: #241a00; }
-
-        .grid-2 {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 1.25rem;
-            margin-bottom: 1.5rem;
-        }
-
-        .grid-3 {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 1.25rem;
-            margin-bottom: 1.5rem;
-        }
-
-        @media (max-width: 950px) {
-            .grid-2, .grid-3 { grid-template-columns: 1fr; }
-        }
-
-        .section-title {
-            font-size: 1rem;
-            font-weight: 700;
-            margin-bottom: 0.8rem;
-            color: var(--cyber-blue);
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .console-box {
-            background: #06080b;
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-            padding: 12px;
-            font-family: 'Consolas', 'Courier New', monospace;
-            font-size: 0.8rem;
-            color: #38bdf8;
-            height: 300px;
-            overflow-y: auto;
-            white-space: pre-wrap;
-        }
-
-        .console-input-row {
-            display: flex;
-            gap: 8px;
-            margin-top: 10px;
-        }
-
-        input[type="text"], select {
-            background: #06080b;
-            border: 1px solid var(--border-color);
-            color: var(--text-main);
-            border-radius: 6px;
-            padding: 9px 12px;
-            font-size: 0.9rem;
-            width: 100%;
-        }
-
-        input[type="text"]:focus, select:focus { outline: 1px solid var(--cyber-blue); }
-
-        .btn {
-            background: #1e2838;
-            color: #fff;
-            border: 1px solid var(--border-color);
-            padding: 8px 14px;
-            border-radius: 6px;
-            font-size: 0.85rem;
-            cursor: pointer;
-            transition: all 0.2s;
-            text-decoration: none;
-            display: inline-block;
-            white-space: nowrap;
-        }
-
-        .btn:hover { background: var(--cyber-blue); color: #000; border-color: var(--cyber-blue); }
-        .btn-sm { padding: 4px 10px; font-size: 0.75rem; }
-        .btn-danger:hover { background: var(--cyber-pink); color: #fff; border-color: var(--cyber-pink); }
-
-        .kv { font-size: 0.85rem; margin-bottom: 6px; }
-        .kv strong { color: #fff; }
-
-        table { width: 100%; border-collapse: collapse; text-align: left; }
-
-        th {
-            padding: 8px 10px;
-            font-size: 0.7rem;
-            text-transform: uppercase;
-            color: var(--text-muted);
-            border-bottom: 1px solid var(--border-color);
-        }
-
-        td {
-            padding: 7px 10px;
-            border-bottom: 1px solid var(--border-color);
-            font-size: 0.8rem;
-        }
-
-        .pill-list { display: flex; flex-wrap: wrap; gap: 6px; }
-
-        .pill {
-            background: rgba(0, 240, 255, 0.1);
-            border: 1px solid var(--border-color);
-            color: var(--cyber-blue);
-            padding: 3px 10px;
-            border-radius: 14px;
-            font-size: 0.78rem;
-        }
-
-        .empty { color: var(--text-muted); font-size: 0.8rem; font-style: italic; }
-
-        .form-row { display: flex; gap: 8px; margin-top: 8px; }
-
-        .save-note { color: var(--cyber-green); font-size: 0.78rem; margin-top: 6px; min-height: 1em; }
-
-        footer {
-            border-top: 1px solid var(--border-color);
-            padding: 1.5rem;
-            text-align: center;
-            font-size: 0.8rem;
-            color: var(--text-muted);
-        }
-
-        .toast {
-            position: fixed;
-            bottom: 24px;
-            right: 24px;
-            background: var(--bg-card);
-            border: 1px solid var(--cyber-blue);
-            color: var(--cyber-blue);
-            padding: 12px 18px;
-            border-radius: 8px;
-            font-size: 0.85rem;
-            opacity: 0;
-            transform: translateY(8px);
-            transition: opacity 0.3s, transform 0.3s;
-            z-index: 999;
-        }
-
-        .toast.show { opacity: 1; transform: translateY(0); }
-    </style>
-</head>
-<body>
-    <header>
-        <div class="brand">
-            <div class="brand-logo">CYBER HOST</div>
-            <a class="back-link" href="/">&#8592; Back to Control Panel</a>
-        </div>
-        <div style="display:flex; gap:8px;">
-            <button class="power-btn btn-start" id="btn-start" onclick="power('start')">&#9654; Start</button>
-            <button class="power-btn btn-restart" id="btn-restart" onclick="power('restart')">&#8635; Restart</button>
-            <button class="power-btn btn-stop" id="btn-stop" onclick="power('stop')">&#9632; Stop</button>
-        </div>
-    </header>
-
-    <div class="container">
-        <div class="server-head">
-            <div>
-                <div class="server-title">
-                    {{ server.name }}
-                    <span class="tag tag-software">{{ server.software }} {{ server.mc_version }}</span>
-                    <span class="tag tag-{{ server.status }}" id="status-tag">{{ server.status }}</span>
-                </div>
-                <div class="status-detail" id="status-detail">{{ server.status_detail }}</div>
-                <div class="status-detail" id="queue-note" style="display:none; color: var(--cyber-amber);"></div>
+{% extends "layout.html" %}
+{% block title %}{{ server.name }} — {{ APP_NAME }}{% endblock %}
+{% block nav_servers %}active{% endblock %}
+{% block pagetitle %}{{ server.name }}{% endblock %}
+{% block content %}
+{% set role_level = {'viewer': 0, 'moderator': 1, 'admin': 2, 'owner': 3}.get(server.role, 0) %}
+<div class="card" style="margin-bottom:16px">
+    <div class="row" style="gap:16px">
+        <div>
+            <div class="row"><strong style="font-size:17px" id="svName">{{ server.name }}</strong>
+                <span class="badge muted" id="svStatus">{{ server.status }}</span>
+                <span class="badge muted">{{ server.software|capitalize }} {{ server.mc_version }}</span>
+                {% if server.jar_ready %}<span class="badge ok">real jar</span>{% endif %}
             </div>
-            <div>
-                <div class="card-title">Server Address (changes on every start)</div>
-                <div class="address-box">
-                    <span id="address" class="{{ 'none' if not server.address }}">{{ server.address or "offline — start the server to get an address" }}</span>
-                    <button class="btn btn-sm" onclick="copyAddress()">Copy</button>
-                </div>
+            <div class="muted" style="font-size:12.5px;margin-top:6px">
+                Address: <span class="mono" id="svAddress">{{ server.address or "offline" }}</span>
+                &middot; RAM {{ server.ram_mb }} MB &middot; {{ server.gamemode }} &middot; {{ server.difficulty }}
+                {% if server.description %} &middot; {{ server.description }}{% endif %}
             </div>
         </div>
-
-        <div class="grid-3">
-            <div class="card card-accent-green">
-                <div class="card-title">Uptime / Playtime</div>
-                <div class="kv">Session: <strong id="uptime">{{ "%dh %02dm" | format(server.uptime_seconds // 3600, (server.uptime_seconds % 3600) // 60) }}</strong></div>
-                <div class="kv">Total playtime: <strong id="playtime">{{ "%dh %02dm" | format(server.playtime_seconds // 3600, (server.playtime_seconds % 3600) // 60) }}</strong></div>
-                <div class="kv">RAM: <strong>{{ server.ram_mb }} MB</strong></div>
-            </div>
-            <div class="card card-accent-blue">
-                <div class="card-title">World</div>
-                <div class="kv">Gamemode: <strong>{{ server.gamemode }}</strong> | Difficulty: <strong>{{ server.difficulty }}</strong></div>
-                <div class="kv">Seed: <strong>{{ server.level_seed or "(random)" }}</strong></div>
-                <div class="kv">Max players: <strong>{{ server.max_players }}</strong> | PvP: <strong>{{ "on" if server.pvp else "off" }}</strong></div>
-            </div>
-            <div class="card card-accent-purple">
-                <div class="card-title">Runtime & Software</div>
-                <div class="kv" id="runtime-note">{{ "Real Java process (server.jar uploaded)" if server.jar_ready else "Embedded console runtime — upload server.jar below for real hosting" }}</div>
-                <div class="form-row">
-                    <input type="text" id="jar-note" placeholder="No jar uploaded" disabled>
-                    <label class="btn btn-sm" for="jar-input" style="cursor:pointer">Upload server.jar</label>
-                    <input type="file" id="jar-input" accept=".jar" style="display:none" onchange="uploadJar(this)">
-                </div>
-            </div>
-        </div>
-
-        <div class="grid-2">
-            <div class="card card-accent-blue">
-                <div class="section-title">🖥 Console</div>
-                <div class="console-box" id="console"></div>
-                <div class="console-input-row">
-                    <input type="text" id="cmd-input" placeholder='Type a command (help, list, say hi, op Steve, time set day...) and press Enter' onkeydown="if(event.key==='Enter')sendCommand()">
-                    <button class="btn" onclick="sendCommand()">Send</button>
-                </div>
-            </div>
-
-            <div class="card card-accent-green">
-                <div class="section-title">⚙ Settings (server.properties)</div>
-                <div class="kv">MOTD <input type="text" id="p-motd" value="{{ server.motd }}"></div>
-                <div class="form-row">
-                    <div>
-                        <div class="card-title">Gamemode</div>
-                        <select id="p-gamemode">
-                            {% for g in ["survival", "creative", "adventure", "spectator"] %}
-                            <option value="{{ g }}" {{ "selected" if g == server.gamemode }}>{{ g }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div>
-                        <div class="card-title">Difficulty</div>
-                        <select id="p-difficulty">
-                            {% for d in ["peaceful", "easy", "normal", "hard"] %}
-                            <option value="{{ d }}" {{ "selected" if d == server.difficulty }}>{{ d }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div>
-                        <div class="card-title">Max players</div>
-                        <input type="text" id="p-max-players" value="{{ server.max_players }}">
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div>
-                        <div class="card-title">Seed</div>
-                        <input type="text" id="p-level-seed" value="{{ server.level_seed or '' }}">
-                    </div>
-                    <div>
-                        <div class="card-title">PvP</div>
-                        <select id="p-pvp">
-                            <option value="true" {{ "selected" if server.pvp }}>on</option>
-                            <option value="false" {{ "selected" if not server.pvp }}>off</option>
-                        </select>
-                    </div>
-                    <div>
-                        <div class="card-title">Whitelist</div>
-                        <select id="p-white-list">
-                            <option value="true" {{ "selected" if server.whitelist_enabled }}>on</option>
-                            <option value="false" {{ "selected" if not server.whitelist_enabled }}>off</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="form-row">
-                    <button class="btn" onclick="saveProperties()">Save Settings</button>
-                    <span class="save-note" id="save-note"></span>
-                </div>
-                <div class="save-note" id="dirty-note" style="color: var(--cyber-amber);">{{ "⚠ Settings changed while online — restart to apply." if server.config_dirty else "" }}</div>
-            </div>
-        </div>
-
-        <div class="grid-3">
-            <div class="card card-accent-blue">
-                <div class="section-title">👥 Players & Access</div>
-                <div class="card-title">Operators</div>
-                <div class="pill-list" id="list-ops"></div>
-                <div class="card-title" style="margin-top:10px;">Whitelist</div>
-                <div class="pill-list" id="list-whitelist"></div>
-                <div class="card-title" style="margin-top:10px;">Banned</div>
-                <div class="pill-list" id="list-bans"></div>
-                <div class="form-row">
-                    <input type="text" id="player-input" placeholder="Player name">
-                    <select id="player-kind" style="width:auto">
-                        <option value="ops">op</option>
-                        <option value="whitelist">whitelist</option>
-                        <option value="bans">ban</option>
-                    </select>
-                    <button class="btn btn-sm" onclick="playerAction('add')">+</button>
-                    <button class="btn btn-sm btn-danger" onclick="playerAction('remove')">−</button>
-                </div>
-            </div>
-
-            <div class="card card-accent-purple">
-                <div class="section-title">💾 Backups</div>
-                <div class="kv" style="color: var(--text-muted);">Auto-backup runs on every stop. Last {{ server.max_backups or 5 }} are kept.</div>
-                <div class="form-row">
-                    <button class="btn" onclick="createBackup()">Create Backup</button>
-                </div>
-                <table style="margin-top:10px;">
-                    <thead><tr><th>Backup</th><th>Size</th><th>Actions</th></tr></thead>
-                    <tbody id="backup-rows"></tbody>
-                </table>
-            </div>
-
-            <div class="card card-accent-pink">
-                <div class="section-title">📁 Files</div>
-                <table>
-                    <thead><tr><th>Name</th><th>Size</th><th></th></tr></thead>
-                    <tbody id="file-rows"></tbody>
-                </table>
-                <div class="form-row" style="margin-top:12px;">
-                    <button class="btn btn-sm btn-danger" onclick="deleteServer()">🗑 Delete Server</button>
-                </div>
-            </div>
+        <div class="row right">
+            {% if server.status == 'offline' or server.status == 'error' %}
+            <button class="btn primary" id="btnStart" onclick="power('start')">▶ Start</button>
+            {% else %}
+            <button class="btn" id="btnStop" onclick="power('stop')">■ Stop</button>
+            <button class="btn" id="btnRestart" onclick="power('restart')">↻ Restart</button>
+            {% endif %}
+            <button class="btn danger" onclick="deleteServer()">Delete</button>
         </div>
     </div>
+    <div class="muted" id="svDetail" style="font-size:12px;margin-top:8px">{{ server.status_detail }}</div>
+</div>
 
-    <footer>
-        Cyber Host &bull; Aternos-style hosting built into Cyber Minecraft AI &bull; <a class="back-link" href="/">Control Panel</a>
-    </footer>
+<div class="tabs" id="tabs">
+    <a href="?tab=overview" data-tab="overview">Overview</a>
+    <a href="?tab=console" data-tab="console">Console</a>
+    <a href="?tab=players" data-tab="players">Players</a>
+    <a href="?tab=worlds" data-tab="worlds">Worlds</a>
+    <a href="?tab=files" data-tab="files">Files</a>
+    <a href="?tab=backups" data-tab="backups">Backups</a>
+    <a href="?tab=schedules" data-tab="schedules">Schedules</a>
+    <a href="?tab=properties" data-tab="properties">Properties</a>
+    <a href="?tab=network" data-tab="network">Networking</a>
+    <a href="?tab=sharing" data-tab="sharing">Sharing</a>
+</div>
 
-    <div class="toast" id="toast"></div>
+<div id="tab-content"><div class="skeleton" style="height:200px"></div></div>
 
-    <script>
-        const SERVER_ID = "{{ server.id }}";
+<script>
+const SID = "{{ server.id }}";
+const ROLE = "{{ server.role }}";
+const ROLE_LEVEL = {viewer: 0, moderator: 1, admin: 2, owner: 3}[ROLE] ?? 0;
+const currentTab = new URLSearchParams(location.search).get('tab') || 'overview';
+document.querySelectorAll('#tabs a').forEach(a => {
+    if (a.dataset.tab === currentTab) a.classList.add('active');
+    a.href = '?tab=' + a.dataset.tab + '&keep=1';
+});
+function canDo(level) { return ROLE_LEVEL >= level; }
+</script>
 
-        function toast(msg) {
-            const t = document.getElementById('toast');
-            t.textContent = msg;
-            t.classList.add('show');
-            setTimeout(() => t.classList.remove('show'), 3000);
-        }
+<!-- ============ OVERVIEW ============ -->
+<script type="text/html" id="tpl-overview">
+<div class="grid cols-2">
+    <div class="card">
+        <h3>Runtime</h3>
+        <table class="list" id="ovTable"><tbody></tbody></table>
+    </div>
+    <div class="card">
+        <h3>Live console preview</h3>
+        <div class="console-box" id="ovConsole" style="height:280px">Loading...</div>
+        <div class="row" style="margin-top:10px">
+            <a class="btn small" href="?tab=console&keep=1" style="text-decoration:none">Open full console</a>
+        </div>
+    </div>
+</div>
+</script>
 
-        async function refresh() {
-            try {
-                const res = await fetch(`/api/servers/${SERVER_ID}`);
-                if (!res.ok) return;
-                render(await res.json());
-            } catch (err) { /* transient */ }
-        }
+<!-- ============ CONSOLE ============ -->
+<script type="text/html" id="tpl-console">
+<div class="card">
+    <h3>Server console</h3>
+    <div class="console-box" id="console"></div>
+    <div class="row" style="margin-top:12px">
+        <input type="text" id="cmdInput" class="mono" placeholder="Type a command (help, list, say, time set day, whitelist add Steve...)" style="flex:1"
+               onkeydown="if(event.key==='Enter')sendCmd()" {% if role_level < 1 %}disabled{% endif %}>
+        <button class="btn primary" onclick="sendCmd()" {% if role_level < 1 %}disabled{% endif %}>Send</button>
+        <button class="btn small" onclick="togglePause()" id="pauseBtn">Pause</button>
+        <a class="btn small" href="/api/servers/{{ server.id }}/files/download?path=logs/latest.log" style="text-decoration:none">Download log</a>
+    </div>
+    <div class="muted" style="font-size:11.5px;margin-top:8px">
+        Commands run inside the Minecraft server console only — never the host operating system.
+        Dangerous commands (stop, ban) take effect immediately.
+    </div>
+</div>
+</script>
 
-        function render(s) {
-            const tag = document.getElementById('status-tag');
-            tag.textContent = s.status;
-            tag.className = `tag tag-${s.status}`;
-            document.getElementById('status-detail').textContent = s.status_detail;
+<!-- ============ PLAYERS ============ -->
+<script type="text/html" id="tpl-players">
+<div class="grid cols-3">
+    <div class="card"><h3>Operators (ops)</h3><div id="list-ops"></div>
+        {% if role_level >= 1 %}<div class="row" style="margin-top:10px"><input type="text" id="add-ops" placeholder="Player name">
+        <button class="btn small" onclick="playerAction('ops','add')">Op</button></div>{% endif %}</div>
+    <div class="card"><h3>Whitelist</h3><div id="list-whitelist"></div>
+        {% if role_level >= 1 %}<div class="row" style="margin-top:10px"><input type="text" id="add-whitelist" placeholder="Player name">
+        <button class="btn small" onclick="playerAction('whitelist','add')">Add</button></div>{% endif %}</div>
+    <div class="card"><h3>Banned players</h3><div id="list-bans"></div>
+        {% if role_level >= 1 %}<div class="row" style="margin-top:10px"><input type="text" id="add-bans" placeholder="Player name">
+        <button class="btn small danger" onclick="playerAction('bans','add')">Ban</button></div>{% endif %}</div>
+</div>
+</script>
 
-            const queueNote = document.getElementById('queue-note');
-            if (s.queue_position) {
-                queueNote.style.display = 'block';
-                queueNote.textContent = `⏳ You are position ${s.queue_position} in the start queue...`;
-            } else {
-                queueNote.style.display = 'none';
-            }
+<!-- ============ WORLDS ============ -->
+<script type="text/html" id="tpl-worlds">
+<div class="card">
+    <h3>World manager</h3>
+    <div class="row" style="margin-bottom:14px">
+        {% if role_level >= 2 %}
+        <input type="file" id="worldFile" accept=".zip" style="display:none" onchange="importWorld()">
+        <button class="btn" onclick="document.getElementById('worldFile').click()">⬆ Import world (.zip)</button>
+        {% endif %}
+        <span class="muted" style="font-size:12.5px">Worlds import from Java or Bedrock save archives. The server must be offline to import, activate or delete.</span>
+    </div>
+    <table class="list" id="worldTable"><thead><tr><th>World</th><th>Status</th><th>Size</th><th>Modified</th><th></th></tr></thead><tbody></tbody></table>
+</div>
+</script>
 
-            const addr = document.getElementById('address');
-            addr.textContent = s.address || 'offline — start the server to get an address';
-            addr.className = s.address ? '' : 'none';
+<!-- ============ FILES ============ -->
+<script type="text/html" id="tpl-files">
+<div class="card">
+    <h3>File manager <span class="muted mono right" id="fileCwd" style="text-transform:none"></span></h3>
+    <div class="row" style="margin-bottom:12px">
+        <button class="btn small" onclick="upDir()">⬆ Up</button>
+        {% if role_level >= 2 %}
+        <button class="btn small" onclick="mkdirPrompt()">+ New folder</button>
+        <input type="file" id="uploadFile" style="display:none" onchange="uploadFile()">
+        <button class="btn small" onclick="document.getElementById('uploadFile').click()">⬆ Upload</button>
+        {% endif %}
+        <input type="text" id="fileSearch" placeholder="Filter..." style="max-width:200px;margin-left:auto" oninput="renderFiles()">
+    </div>
+    <table class="list" id="fileTable"><thead><tr><th>Name</th><th>Size</th><th>Modified</th><th></th></tr></thead><tbody></tbody></table>
+    <p class="muted" style="font-size:11.5px;margin-top:10px">The file browser is restricted to this server's directory. Text files open in the editor; sensitive files are backed up as .bak before saving.</p>
+</div>
+<div id="editorWrap" style="display:none;margin-top:16px">
+    <div class="card">
+        <h3>Editing <span class="mono muted" id="editorPath"></span></h3>
+        <textarea id="editor" class="mono" rows="18" spellcheck="false"></textarea>
+        <div class="row" style="margin-top:10px">
+            <button class="btn primary small" onclick="saveFile()">Save</button>
+            <button class="btn small" onclick="document.getElementById('editorWrap').style.display='none'">Close</button>
+        </div>
+    </div>
+</div>
+</script>
 
-            const online = s.status === 'online';
-            const busy = ['queued', 'preparing', 'starting', 'stopping'].includes(s.status);
-            document.getElementById('btn-start').disabled = !['offline', 'error'].includes(s.status);
-            document.getElementById('btn-stop').disabled = !online && s.status !== 'queued';
-            document.getElementById('btn-restart').disabled = !online;
+<!-- ============ BACKUPS ============ -->
+<script type="text/html" id="tpl-backups">
+<div class="card">
+    <h3>Backups (max {{ server.max_backups }})</h3>
+    <button class="btn primary" style="margin-bottom:14px" onclick="createBackup()">+ Create backup now</button>
+    <table class="list" id="backupTable"><thead><tr><th>File</th><th>Type</th><th>Size</th><th>Created</th><th></th></tr></thead><tbody></tbody></table>
+</div>
+</script>
 
-            const h = Math.floor(s.uptime_seconds / 3600), m = Math.floor((s.uptime_seconds % 3600) / 60);
-            document.getElementById('uptime').textContent = `${h}h ${String(m).padStart(2, '0')}m`;
-            const ph = Math.floor(s.playtime_seconds / 3600), pm = Math.floor((s.playtime_seconds % 3600) / 60);
-            document.getElementById('playtime').textContent = `${ph}h ${String(pm).padStart(2, '0')}m`;
+<!-- ============ SCHEDULES ============ -->
+<script type="text/html" id="tpl-schedules">
+<div class="card">
+    <h3>Scheduled tasks</h3>
+    {% if role_level >= 2 %}
+    <div class="row" style="margin-bottom:14px">
+        <input type="text" id="schedName" placeholder="Name" style="max-width:160px">
+        <select id="schedAction" style="max-width:150px">
+            <option value="backup">Backup</option><option value="restart">Restart</option>
+            <option value="stop">Stop</option><option value="start">Start</option>
+            <option value="save">Save world</option><option value="command">Command</option>
+        </select>
+        <input type="text" id="schedPayload" placeholder="Command (for command action)" style="max-width:180px">
+        <select id="schedMode" style="max-width:150px" onchange="document.getElementById('schedDaily').style.display=this.value==='daily'?'':'none';document.getElementById('schedInterval').style.display=this.value==='interval'?'':'none'">
+            <option value="interval">Every N minutes</option><option value="daily">Daily at HH:MM</option>
+        </select>
+        <input type="number" id="schedInterval" value="60" min="5" style="max-width:110px">
+        <input type="time" id="schedDaily" style="display:none;max-width:120px">
+        <button class="btn primary" onclick="createSchedule()">Add schedule</button>
+    </div>
+    {% endif %}
+    <table class="list" id="schedTable"><thead><tr><th>Name</th><th>Action</th><th>When</th><th>Next run</th><th></th></tr></thead><tbody></tbody></table>
+    <p class="muted" style="font-size:11.5px;margin-top:10px">Schedules are stored in the database and survive restarts. Failed backups retry after 5 minutes.</p>
+</div>
+</script>
 
-            renderConsole(s.console);
-            renderPlayers(s.players);
-            renderBackups(s.backups);
-            renderFiles(s.files);
-            document.getElementById('dirty-note').textContent = s.config_dirty ? '⚠ Settings changed while online — restart to apply.' : '';
-        }
+<!-- ============ PROPERTIES ============ -->
+<script type="text/html" id="tpl-properties">
+<div class="card" style="max-width:640px">
+    <h3>Server properties</h3>
+    <div id="propForm"></div>
+    {% if role_level >= 2 %}
+    <button class="btn primary" onclick="saveProps()">Save properties</button>
+    <span class="muted" style="font-size:12px;margin-left:10px">A restart is required for changes to reach the running server.</span>
+    {% else %}<p class="muted">Only server admins can edit properties.</p>{% endif %}
+</div>
+</script>
 
-        function renderConsole(lines) {
-            const box = document.getElementById('console');
-            const stick = box.scrollTop + box.clientHeight >= box.scrollHeight - 30;
-            const text = lines.join('\n');
-            if (box.dataset.last !== text) {
-                box.textContent = text || '[no console output yet — start the server]';
-                box.dataset.last = text;
-            }
-            if (stick) box.scrollTop = box.scrollHeight;
-        }
+<!-- ============ NETWORK ============ -->
+<script type="text/html" id="tpl-network">
+<div class="grid cols-2">
+    <div class="card">
+        <h3>Connection addresses</h3>
+        <table class="list"><tbody>
+            <tr><td>Java address</td><td class="mono" id="netJava">—</td></tr>
+            <tr><td>Bedrock address</td><td class="mono" id="netBedrock">—</td></tr>
+            <tr><td>Public host</td><td class="mono" id="netHost">—</td></tr>
+            <tr><td>Runtime state</td><td id="netStatus">—</td></tr>
+        </tbody></table>
+        <div class="muted" style="font-size:12px;margin-top:10px">
+            A dashboard web URL (HTTPS) does not accept Minecraft game traffic.
+            Java uses TCP, Bedrock uses UDP — both need a public host, an open port or a tunnel.
+        </div>
+    </div>
+    <div class="card">
+        <h3>Connectivity diagnostics <button class="btn small right" onclick="runDiag()">Run tests</button></h3>
+        <div id="diagResults" class="muted">Run the tests to measure DNS, port binding and reachability for real.</div>
+    </div>
+</div>
+<div class="card" style="margin-top:16px">
+    <h3>Shareable links</h3>
+    <div class="row" style="margin-bottom:10px">
+        <input type="text" class="mono" id="dashLink" readonly style="flex:1" value="">
+        <button class="btn small" onclick="copyEl('dashLink')">Copy dashboard link</button>
+    </div>
+    <p class="muted" style="font-size:12px">World and backup downloads generate secure, expiring tokens from their own tabs — links never expose your password, tokens or filesystem paths.</p>
+</div>
+</script>
 
-        function renderPlayers(players) {
-            for (const [kind, elId] of [['ops', 'list-ops'], ['whitelist', 'list-whitelist'], ['bans', 'list-bans']]) {
-                const el = document.getElementById(elId);
-                const entries = (players[kind] || []).map(p => p.name);
-                el.innerHTML = entries.length
-                    ? entries.map(n => `<span class="pill">${n.replace(/[<>&]/g, '')}</span>`).join('')
-                    : '<span class="empty">none</span>';
-            }
-        }
+<!-- ============ SHARING ============ -->
+<script type="text/html" id="tpl-sharing">
+<div class="card" style="max-width:640px">
+    <h3>Server access</h3>
+    <p class="muted" style="font-size:12.5px;margin-bottom:14px">
+        Your role: <strong>{{ server.role }}</strong>. Owners can share the server with registered users.
+        Viewers can watch; moderators can run commands; admins can change settings.
+    </p>
+    {% if role_level >= 3 %}
+    <div class="row" style="margin-bottom:14px">
+        <input type="text" id="shareUser" placeholder="username" style="max-width:180px">
+        <select id="shareRole" style="max-width:140px"><option>viewer</option><option>moderator</option><option>admin</option></select>
+        <button class="btn primary" onclick="addShare()">Share</button>
+    </div>
+    {% endif %}
+    <table class="list" id="shareTable"><thead><tr><th>User</th><th>Role</th><th></th></tr></thead><tbody></tbody></table>
+</div>
+</script>
 
-        function renderBackups(backups) {
-            const rows = document.getElementById('backup-rows');
-            if (!backups || !backups.length) {
-                rows.innerHTML = '<tr><td colspan="3" class="empty">No backups yet</td></tr>';
-                return;
-            }
-            rows.innerHTML = backups.map(b => `
-                <tr>
-                    <td>${b.kind === 'auto' ? '🤖 ' : '🖐 '}${b.filename.replace(/[<>&]/g, '')}<br><small style="color:var(--text-muted)">${(b.created_at || '').replace('T', ' ').slice(0, 16)}</small></td>
-                    <td>${Math.max(1, Math.round(b.size_bytes / 1024))} KB</td>
-                    <td>
-                        <a class="btn btn-sm" href="/api/servers/${SERVER_ID}/backups/${b.id}/download">⬇</a>
-                        <button class="btn btn-sm" onclick="restoreBackup(${b.id})">Restore</button>
-                        <button class="btn btn-sm btn-danger" onclick="deleteBackup(${b.id})">✕</button>
-                    </td>
-                </tr>`).join('');
-        }
+{% endblock %}
+{% block scripts %}
+{% set role_level = {'viewer': 0, 'moderator': 1, 'admin': 2, 'owner': 3}.get(server.role, 0) %}
+<script>
+/* ---------------- shared helpers ---------------- */
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function fmtBytes(b) { return b > 1048576 ? (b/1048576).toFixed(1) + ' MB' : (b/1024).toFixed(0) + ' KB'; }
+function copyEl(id) { const el = document.getElementById(id); el.select(); document.execCommand('copy'); toast('Copied'); }
+function showTab(name) {
+    const tpl = document.getElementById('tpl-' + name);
+    document.getElementById('tab-content').innerHTML = tpl ? tpl.innerHTML : '<div class="card empty">Unknown tab</div>';
+    (window['init_' + name] || function(){} )();
+}
+async function refreshHeader() {
+    try {
+        const s = await api('/api/servers/' + SID);
+        document.getElementById('svStatus').textContent = s.status;
+        document.getElementById('svStatus').className = 'badge ' + ({online:'ok', error:'err'}[s.status] || 'muted');
+        document.getElementById('svAddress').textContent = s.address || 'offline';
+        document.getElementById('svDetail').textContent = s.status_detail || '';
+    } catch (e) {}
+}
 
-        function renderFiles(files) {
-            const rows = document.getElementById('file-rows');
-            if (!files || !files.length) {
-                rows.innerHTML = '<tr><td colspan="3" class="empty">No files yet</td></tr>';
-                return;
-            }
-            rows.innerHTML = files.map(f => `
-                <tr>
-                    <td>${f.is_dir ? '📂' : '📄'} ${f.name.replace(/[<>&]/g, '')}</td>
-                    <td>${f.is_dir ? '—' : f.size_bytes + ' B'}</td>
-                    <td>${f.is_dir ? '' : `<a class="btn btn-sm" href="/api/servers/${SERVER_ID}/files/download?path=${encodeURIComponent(f.name)}">⬇</a>`}</td>
-                </tr>`).join('');
-        }
+/* ---------------- power ---------------- */
+async function power(action) {
+    try {
+        await api(`/api/servers/${SID}/${action}`, {method: 'POST'});
+        toast('Server ' + action + ' requested');
+        setTimeout(() => { refreshHeader(); if (currentTab === 'overview') init_overview(); }, 1500);
+    } catch (e) { toast(e.message, 'err'); }
+}
+async function deleteServer() {
+    if (!confirmDialog('Permanently delete this server and ALL its files (worlds, backups, mods)?')) return;
+    try { await api('/api/servers/' + SID, {method: 'DELETE'}); window.location.href = '/servers'; }
+    catch (e) { toast(e.message, 'err'); }
+}
 
-        async function power(action) {
-            const res = await fetch(`/api/servers/${SERVER_ID}/${action}`, { method: 'POST' });
-            const data = await res.json();
-            if (!res.ok) return toast(data.detail || 'Action failed');
-            toast(action === 'start' ? 'Start request queued!' : `Server ${action} initiated`);
-            refresh();
-        }
+/* ---------------- overview ---------------- */
+function init_overview() {
+    api('/api/servers/' + SID).then(s => {
+        const rows = [
+            ['State', esc(s.status) + ' — ' + esc(s.status_detail || '')],
+            ['Software', esc(s.software) + ' ' + esc(s.mc_version)],
+            ['Address', s.address ? '<span class="mono">' + esc(s.address) + '</span>' : 'offline'],
+            ['Players', 'max ' + s.max_players + ' (live player counts need a real server jar)'],
+            ['Uptime', s.uptime_seconds > 0 ? Math.floor(s.uptime_seconds/3600) + 'h ' + Math.floor(s.uptime_seconds%3600/60) + 'm' : '—'],
+            ['Playtime', Math.floor((s.playtime_seconds||0)/3600) + 'h'],
+            ['Auto backup', s.auto_backup ? 'enabled (on stop)' : 'disabled'],
+            ['Real jar uploaded', s.jar_ready ? 'yes' : 'no — embedded console runtime until a server jar is uploaded'],
+            ['Queue', s.queue_position ? 'position ' + s.queue_position : '—'],
+        ];
+        document.querySelector('#ovTable tbody').innerHTML = rows.map(r => `<tr><td class="muted" style="width:40%">${r[0]}</td><td>${r[1]}</td></tr>`).join('');
+        const lines = s.console || [];
+        document.getElementById('ovConsole').textContent = lines.slice(-40).join('\n') || 'Console is empty — start the server.';
+        const box = document.getElementById('ovConsole'); box.scrollTop = box.scrollHeight;
+    }).catch(e => toast(e.message, 'err'));
+}
 
-        async function sendCommand() {
-            const input = document.getElementById('cmd-input');
-            const cmd = input.value.trim();
-            if (!cmd) return;
-            input.value = '';
-            const res = await fetch(`/api/servers/${SERVER_ID}/command`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ command: cmd })
-            });
-            const data = await res.json();
-            if (!res.ok) return toast(data.detail || 'Command failed');
-            refresh();
-        }
+/* ---------------- console ---------------- */
+let paused = false, evtSource = null;
+function init_console() {
+    const box = document.getElementById('console');
+    api(`/api/servers/${SID}/console?tail=200`).then(d => {
+        box.textContent = (d.lines || []).join('\n') || 'Console is empty — start the server.';
+        box.scrollTop = box.scrollHeight;
+    });
+    evtSource = new EventSource(`/api/servers/${SID}/console/stream`);
+    evtSource.onmessage = ev => {
+        if (paused || !ev.data) return;
+        const line = JSON.parse(ev.data);
+        const atBottom = box.scrollTop + box.clientHeight >= box.scrollHeight - 30;
+        box.textContent += '\n' + line;
+        if (atBottom) box.scrollTop = box.scrollHeight;
+    };
+}
+function togglePause() {
+    paused = !paused;
+    document.getElementById('pauseBtn').textContent = paused ? 'Resume' : 'Pause';
+}
+async function sendCmd() {
+    const input = document.getElementById('cmdInput');
+    const cmd = input.value.trim();
+    if (!cmd) return;
+    input.value = '';
+    try {
+        const r = await api(`/api/servers/${SID}/command`, {method: 'POST', body: JSON.stringify({command: cmd})});
+        const box = document.getElementById('console');
+        box.textContent += '\n' + (r.output || []).join('\n');
+        box.scrollTop = box.scrollHeight;
+    } catch (e) { toast(e.message, 'err'); }
+}
 
-        async function saveProperties() {
-            const props = {
-                motd: document.getElementById('p-motd').value,
-                gamemode: document.getElementById('p-gamemode').value,
-                difficulty: document.getElementById('p-difficulty').value,
-                'max-players': parseInt(document.getElementById('p-max-players').value, 10),
-                'level-seed': document.getElementById('p-level-seed').value,
-                pvp: document.getElementById('p-pvp').value === 'true',
-                'white-list': document.getElementById('p-white-list').value === 'true'
-            };
-            const res = await fetch(`/api/servers/${SERVER_ID}/properties`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ properties: props })
-            });
-            const data = await res.json();
-            document.getElementById('save-note').textContent = res.ok ? '✔ Saved' : `✖ ${data.detail || 'Save failed'}`;
-            if (res.ok) toast('Settings saved' + (s_online() ? ' — restart to apply' : ''));
-            refresh();
-        }
+/* ---------------- players ---------------- */
+async function init_players() { await refreshPlayers(); }
+async function refreshPlayers() {
+    for (const kind of ['ops', 'whitelist', 'bans']) {
+        try {
+            const d = await api(`/api/servers/${SID}/players?kind=${kind}`);
+            const el = document.getElementById('list-' + kind);
+            el.innerHTML = d.players.length
+                ? d.players.map(p => `<div class="row" style="padding:5px 0;border-bottom:1px solid var(--border)">
+                    <span>${esc(p.name)}</span>
+                    {% if role_level >= 1 %}<button class="btn small danger right" onclick="playerAction('${kind}','remove','${esc(p.name)}')">Remove</button>{% endif %}
+                  </div>`).join('')
+                : '<div class="empty">None yet.</div>';
+        } catch (e) { document.getElementById('list-' + kind).innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; }
+    }
+}
+async function playerAction(kind, action, name) {
+    const player = name || document.getElementById('add-' + kind).value.trim();
+    if (!player) return toast('Enter a player name', 'err');
+    if (kind === 'bans' && action === 'add' && !confirmDialog('Ban ' + player + ' from this server?')) return;
+    try {
+        const r = await api(`/api/servers/${SID}/players`, {method: 'POST', body: JSON.stringify({kind, action, player})});
+        toast(r.message);
+        refreshPlayers();
+    } catch (e) { toast(e.message, 'err'); }
+}
 
-        function s_online() {
-            return document.getElementById('status-tag').textContent === 'online';
-        }
+/* ---------------- worlds ---------------- */
+async function init_worlds() { await refreshWorlds(); }
+async function refreshWorlds() {
+    try {
+        const worlds = await api(`/api/servers/${SID}/worlds`);
+        const tb = document.querySelector('#worldTable tbody');
+        tb.innerHTML = worlds.map(w => `<tr>
+            <td><strong>${esc(w.name)}</strong></td>
+            <td>${w.active ? '<span class="badge ok">active</span>' : '<span class="badge muted">inactive</span>'}</td>
+            <td>${fmtBytes(w.size_bytes)}</td><td class="muted">${esc(w.modified)}</td>
+            <td class="row" style="justify-content:flex-end">
+                ${!w.active && canDo(2) ? `<button class="btn small" onclick="activateWorld('${esc(w.name)}')">Activate</button>` : ''}
+                ${canDo(0) ? `<button class="btn small" onclick="exportWorld('${esc(w.name)}')">Get link</button>` : ''}
+                ${!w.active && canDo(3) ? `<button class="btn small danger" onclick="deleteWorld('${esc(w.name)}')">Delete</button>` : ''}
+            </td></tr>`).join('') || '<tr><td colspan="5" class="empty">No worlds detected yet.</td></tr>';
+    } catch (e) { toast(e.message, 'err'); }
+}
+async function importWorld() {
+    const file = document.getElementById('worldFile').files[0];
+    if (!file) return;
+    const name = prompt('World folder name:', file.name.replace(/\.zip$/i, ''));
+    if (!name) return;
+    const fd = new FormData(); fd.append('file', file);
+    try {
+        const resp = await fetch(`/api/servers/${SID}/worlds/import?name=${encodeURIComponent(name)}`, {method: 'POST', body: fd});
+        const body = await resp.json();
+        if (!resp.ok) throw new Error(body.detail || resp.statusText);
+        toast('World imported: ' + body.world);
+        refreshWorlds();
+    } catch (e) { toast(e.message, 'err'); }
+}
+async function activateWorld(name) {
+    try { const r = await api(`/api/servers/${SID}/worlds/${encodeURIComponent(name)}/activate`, {method: 'POST'});
+        toast('Active world: ' + r.active + (r.previous ? ' (was ' + r.previous + ')' : '')); refreshWorlds();
+    } catch (e) { toast(e.message, 'err'); }
+}
+async function deleteWorld(name) {
+    if (!confirmDialog('Delete world "' + name + '" permanently? Consider creating a backup first.')) return;
+    try { await api(`/api/servers/${SID}/worlds/${encodeURIComponent(name)}`, {method: 'DELETE'}); toast('World deleted'); refreshWorlds(); }
+    catch (e) { toast(e.message, 'err'); }
+}
+async function exportWorld(name) {
+    try {
+        const r = await api(`/api/servers/${SID}/worlds/${encodeURIComponent(name)}/link`, {method: 'POST'});
+        toast('Download link valid for ' + r.expires_in_hours + 'h');
+        window.open(r.url, '_blank');
+    } catch (e) { toast(e.message, 'err'); }
+}
 
-        async function playerAction(action) {
-            const input = document.getElementById('player-input');
-            const player = input.value.trim();
-            if (!player) return toast('Enter a player name');
-            const kind = document.getElementById('player-kind').value;
-            const res = await fetch(`/api/servers/${SERVER_ID}/players`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ kind, action, player })
-            });
-            const data = await res.json();
-            if (!res.ok) return toast(data.detail || 'Action failed');
-            toast(data.message || 'Done');
-            input.value = '';
-            refresh();
-        }
+/* ---------------- files ---------------- */
+let cwd = '', fileEntries = [];
+async function init_files() { await loadFiles(''); }
+async function loadFiles(path) {
+    try {
+        fileEntries = await api(`/api/servers/${SID}/files?path=${encodeURIComponent(path)}`);
+        cwd = path;
+        document.getElementById('fileCwd').textContent = '/' + cwd;
+        renderFiles();
+    } catch (e) { toast(e.message, 'err'); }
+}
+function renderFiles() {
+    const q = (document.getElementById('fileSearch').value || '').toLowerCase();
+    const tb = document.querySelector('#fileTable tbody');
+    tb.innerHTML = fileEntries.filter(f => !q || f.name.toLowerCase().includes(q)).map(f => `<tr>
+        <td>${f.is_dir ? '📁' : '📄'} <a href="#" onclick="openEntry('${esc(f.name)}', ${f.is_dir});return false">${esc(f.name)}</a></td>
+        <td class="muted">${f.is_dir ? '—' : fmtBytes(f.size_bytes)}</td>
+        <td class="muted">${esc(f.modified)}</td>
+        <td class="row" style="justify-content:flex-end">
+            ${!f.is_dir ? `<a class="btn small" href="/api/servers/${SID}/files/download?path=${encodeURIComponent(cwd ? cwd + '/' + f.name : f.name)}" style="text-decoration:none">Download</a>` : ''}
+            ${canDo(2) ? `<button class="btn small danger" onclick="deleteEntry('${esc(f.name)}')">Delete</button>` : ''}
+        </td></tr>`).join('') || '<tr><td colspan="4" class="empty">Empty directory.</td></tr>';
+}
+function openEntry(name, isDir) {
+    const path = cwd ? cwd + '/' + name : name;
+    if (isDir) return loadFiles(path);
+    openEditor(path);
+}
+function upDir() { if (!cwd) return; const parts = cwd.split('/'); parts.pop(); loadFiles(parts.join('/')); }
+async function openEditor(path) {
+    try {
+        const d = await api(`/api/servers/${SID}/files/read?path=${encodeURIComponent(path)}`);
+        document.getElementById('editorWrap').style.display = '';
+        document.getElementById('editorPath').textContent = '/' + path;
+        document.getElementById('editor').value = d.content;
+    } catch (e) { toast(e.message, 'err'); }
+}
+async function saveFile() {
+    const path = document.getElementById('editorPath').textContent.replace(/^\//, '');
+    try {
+        await api(`/api/servers/${SID}/files/write?path=${encodeURIComponent(path)}`, {method: 'PUT',
+            body: JSON.stringify({content: document.getElementById('editor').value})});
+        toast('Saved. A .bak of the previous version was kept. Restart the server if it reads this file at boot.');
+    } catch (e) { toast(e.message, 'err'); }
+}
+async function deleteEntry(name) {
+    const path = cwd ? cwd + '/' + name : name;
+    if (!confirmDialog('Delete "' + path + '"?')) return;
+    try { await api(`/api/servers/${SID}/files?path=${encodeURIComponent(path)}`, {method: 'DELETE'}); loadFiles(cwd); }
+    catch (e) { toast(e.message, 'err'); }
+}
+function mkdirPrompt() {
+    const name = prompt('New folder name:');
+    if (!name) return;
+    const path = cwd ? cwd + '/' + name : name;
+    api(`/api/servers/${SID}/files/mkdir`, {method: 'POST', body: JSON.stringify({path})})
+        .then(() => loadFiles(cwd)).catch(e => toast(e.message, 'err'));
+}
+async function uploadFile() {
+    const file = document.getElementById('uploadFile').files[0];
+    if (!file) return;
+    const fd = new FormData(); fd.append('file', file);
+    try {
+        const resp = await fetch(`/api/servers/${SID}/upload`, {method: 'POST', body: fd});
+        const body = await resp.json();
+        if (!resp.ok) throw new Error(body.detail || resp.statusText);
+        toast(body.message || 'Uploaded');
+        loadFiles(cwd); refreshHeader();
+    } catch (e) { toast(e.message, 'err'); }
+}
 
-        async function createBackup() {
-            const res = await fetch(`/api/servers/${SERVER_ID}/backups`, { method: 'POST' });
-            const data = await res.json();
-            if (!res.ok) return toast(data.detail || 'Backup failed');
-            toast('Backup created');
-            refresh();
-        }
+/* ---------------- backups ---------------- */
+async function init_backups() { await refreshBackups(); }
+async function refreshBackups() {
+    try {
+        const backups = await api(`/api/servers/${SID}/backups`);
+        document.querySelector('#backupTable tbody').innerHTML = backups.map(b => `<tr>
+            <td class="mono" style="font-size:12px">${esc(b.filename)}</td>
+            <td>${b.kind === 'auto' ? '<span class="badge info">auto</span>' : '<span class="badge muted">manual</span>'}</td>
+            <td>${fmtBytes(b.size_bytes)}</td><td class="muted">${esc((b.created_at || '').replace('T', ' ').slice(0, 16))}</td>
+            <td class="row" style="justify-content:flex-end">
+                <button class="btn small" onclick="backupLink(${b.id})">Share link</button>
+                <a class="btn small" href="/api/servers/${SID}/backups/${b.id}/download" style="text-decoration:none">Download</a>
+                ${canDo(3) ? `<button class="btn small" onclick="restoreBackup(${b.id})">Restore</button>` : ''}
+            </td></tr>`).join('') || '<tr><td colspan="5" class="empty">No backups yet.</td></tr>';
+    } catch (e) { toast(e.message, 'err'); }
+}
+async function createBackup() {
+    try { await api(`/api/servers/${SID}/backups`, {method: 'POST'}); toast('Backup created'); refreshBackups(); }
+    catch (e) { toast(e.message, 'err'); }
+}
+async function restoreBackup(id) {
+    if (!confirmDialog('Restore this backup? The current world will be REPLACED by the backup contents. The server must be offline.')) return;
+    try { await api(`/api/servers/${SID}/backups/${id}/restore`, {method: 'POST'}); toast('Backup restored'); }
+    catch (e) { toast(e.message, 'err'); }
+}
+async function backupLink(id) {
+    try {
+        const r = await api(`/api/servers/${SID}/backups/${id}/link`, {method: 'POST'});
+        toast('Link valid for ' + r.expires_in_hours + 'h — anyone with this link can download until it expires');
+        window.open(r.url, '_blank');
+    } catch (e) { toast(e.message, 'err'); }
+}
 
-        async function restoreBackup(id) {
-            const res = await fetch(`/api/servers/${SERVER_ID}/backups/${id}/restore`, { method: 'POST' });
-            const data = await res.json();
-            if (!res.ok) return toast(data.detail || 'Restore failed');
-            toast('Backup restored');
-            refresh();
-        }
+/* ---------------- schedules ---------------- */
+async function init_schedules() { await refreshSchedules(); }
+async function refreshSchedules() {
+    try {
+        const list = await api(`/api/servers/${SID}/schedules`);
+        document.querySelector('#schedTable tbody').innerHTML = list.map(s => `<tr>
+            <td><strong>${esc(s.name)}</strong></td>
+            <td>${esc(s.action)}${s.payload ? ' <span class="mono muted">(' + esc(s.payload) + ')</span>' : ''}</td>
+            <td class="muted">${s.interval_minutes ? 'every ' + s.interval_minutes + ' min' : 'daily at ' + esc(s.daily_time)}</td>
+            <td class="muted">${s.next_run_at ? esc(s.next_run_at.replace('T', ' ').slice(0, 16)) : (s.enabled ? '—' : 'paused')}</td>
+            <td class="row" style="justify-content:flex-end">
+                {% if role_level >= 2 %}
+                <button class="btn small" onclick="toggleSchedule(${s.id}, ${s.enabled ? 'false' : 'true'})">${s.enabled ? 'Pause' : 'Resume'}</button>
+                {% endif %}
+                ${canDo(3) ? `<button class="btn small danger" onclick="deleteSchedule(${s.id})">Delete</button>` : ''}
+            </td></tr>`).join('') || '<tr><td colspan="5" class="empty">No schedules configured.</td></tr>';
+    } catch (e) { toast(e.message, 'err'); }
+}
+async function createSchedule() {
+    const mode = document.getElementById('schedMode').value;
+    try {
+        await api(`/api/servers/${SID}/schedules`, {method: 'POST', body: JSON.stringify({
+            name: document.getElementById('schedName').value || 'Schedule',
+            action: document.getElementById('schedAction').value,
+            payload: document.getElementById('schedPayload').value || null,
+            interval_minutes: mode === 'interval' ? parseInt(document.getElementById('schedInterval').value) : null,
+            daily_time: mode === 'daily' ? document.getElementById('schedDaily').value : null
+        })});
+        toast('Schedule created'); refreshSchedules();
+    } catch (e) { toast(e.message, 'err'); }
+}
+async function toggleSchedule(id, enabled) {
+    try { await api('/api/schedules/' + id, {method: 'PATCH', body: JSON.stringify({enabled})}); refreshSchedules(); }
+    catch (e) { toast(e.message, 'err'); }
+}
+async function deleteSchedule(id) {
+    if (!confirmDialog('Delete this schedule and its history?')) return;
+    try { await api('/api/schedules/' + id, {method: 'DELETE'}); refreshSchedules(); }
+    catch (e) { toast(e.message, 'err'); }
+}
 
-        async function deleteBackup(id) {
-            await fetch(`/api/servers/${SERVER_ID}/backups/${id}`, { method: 'DELETE' });
-            toast('Backup deleted');
-            refresh();
-        }
+/* ---------------- properties ---------------- */
+const EDITABLE = ['motd','gamemode','difficulty','max-players','pvp','white-list','level-seed','view-distance','allow-nether','allow-flight','spawn-monsters'];
+async function init_properties() {
+    try {
+        const props = await api(`/api/servers/${SID}/properties`);
+        const form = document.getElementById('propForm');
+        form.innerHTML = EDITABLE.filter(k => k in props).map(k => `<div class="field">
+            <label>${esc(k)}</label>
+            ${['pvp','white-list','allow-nether','allow-flight','spawn-monsters'].includes(k)
+                ? `<select id="prop-${esc(k)}" {% if role_level < 2 %}disabled{% endif %}><option value="true" ${props[k] === 'true' ? 'selected' : ''}>true</option><option value="false" ${props[k] !== 'true' ? 'selected' : ''}>false</option></select>`
+                : `<input type="text" id="prop-${esc(k)}" value="${esc(props[k])}" {% if role_level < 2 %}disabled{% endif %}>`}
+        </div>`).join('');
+    } catch (e) { toast(e.message, 'err'); }
+}
+async function saveProps() {
+    const updates = {};
+    for (const k of EDITABLE) {
+        const el = document.getElementById('prop-' + k);
+        if (el) updates[k] = el.value;
+    }
+    try {
+        await api(`/api/servers/${SID}/properties`, {method: 'PUT', body: JSON.stringify({properties: updates})});
+        toast('Properties saved. Restart the server to apply them.');
+        refreshHeader();
+    } catch (e) { toast(e.message, 'err'); }
+}
 
-        async function uploadJar(inputEl) {
-            if (!inputEl.files.length) return;
-            const fd = new FormData();
-            fd.append('file', inputEl.files[0]);
-            const res = await fetch(`/api/servers/${SERVER_ID}/upload`, { method: 'POST', body: fd });
-            const data = await res.json();
-            toast(res.ok ? (data.message || 'Jar uploaded') : (data.detail || 'Upload failed'));
-            refresh();
-        }
+/* ---------------- network ---------------- */
+async function init_network() {
+    document.getElementById('dashLink').value = location.origin + '/servers/' + SID;
+    try {
+        const d = await api(`/api/servers/${SID}/network`);
+        document.getElementById('netJava').textContent = d.addresses.java || '—';
+        document.getElementById('netBedrock').textContent = d.addresses.bedrock || '—';
+        document.getElementById('netHost').textContent = d.addresses.public_host + (d.addresses.public_configured ? '' : ' (auto-detected — set SERVER_PUBLIC_HOST)');
+        document.getElementById('netStatus').textContent = d.runtime_status;
+    } catch (e) { toast(e.message, 'err'); }
+}
+async function runDiag() {
+    const box = document.getElementById('diagResults');
+    box.innerHTML = '<div class="skeleton" style="height:80px"></div>';
+    try {
+        const d = await api(`/api/servers/${SID}/network`);
+        const icons = {ok: '✅', failed: '❌', unavailable: '⚠️'};
+        box.innerHTML = Object.entries(d.checks).map(([name, c]) =>
+            `<div class="row" style="padding:6px 0;border-bottom:1px solid var(--border)">
+                <span style="width:26px">${icons[c.status]}</span>
+                <div><strong style="text-transform:capitalize">${esc(name.replace(/_/g, ' '))}</strong>
+                <div class="muted" style="font-size:12px">${esc(c.error || c.note || (c.latency_ms != null ? 'reachable in ' + c.latency_ms + ' ms' : (c.addresses ? c.addresses.join(', ') : 'OK')))}</div></div>
+            </div>`).join('') +
+            '<div class="muted" style="font-size:11.5px;margin-top:10px">' + d.notes.map(esc).join('<br>') + '</div>';
+    } catch (e) { box.textContent = e.message; }
+}
 
-        async function deleteServer() {
-            if (!confirm('Permanently delete this server and all its files?')) return;
-            const res = await fetch(`/api/servers/${SERVER_ID}`, { method: 'DELETE' });
-            if (res.ok) window.location.href = '/';
-        }
+/* ---------------- sharing ---------------- */
+async function init_sharing() { await refreshShares(); }
+async function refreshShares() {
+    {% if role_level >= 2 %}
+    try {
+        const shares = await api(`/api/servers/${SID}/shares`);
+        document.querySelector('#shareTable tbody').innerHTML = shares.map(s => `<tr>
+            <td class="mono">${esc(s.user_id)}</td><td>${esc(s.role)}</td>
+            <td>${canDo(3) ? `<button class="btn small danger" onclick="removeShare(${s.id})">Revoke</button>` : ''}</td></tr>
+        `).join('') || '<tr><td colspan="3" class="empty">Not shared with anyone yet.</td></tr>';
+    } catch (e) { document.querySelector('#shareTable tbody').innerHTML = '<tr><td colspan="3" class="empty">' + esc(e.message) + '</td></tr>'; }
+    {% else %}
+    document.querySelector('#shareTable tbody').innerHTML = '<tr><td colspan="3" class="empty">Only the owner sees the sharing list.</td></tr>';
+    {% endif %}
+}
+async function addShare() {
+    try {
+        await api(`/api/servers/${SID}/shares`, {method: 'POST', body: JSON.stringify({
+            username: document.getElementById('shareUser').value.trim(),
+            role: document.getElementById('shareRole').value})});
+        toast('Server shared'); refreshShares();
+    } catch (e) { toast(e.message, 'err'); }
+}
+async function removeShare(id) {
+    try { await api(`/api/servers/${SID}/shares/${id}`, {method: 'DELETE'}); refreshShares(); }
+    catch (e) { toast(e.message, 'err'); }
+}
 
-        function copyAddress() {
-            const addr = document.getElementById('address').textContent;
-            if (navigator.clipboard) navigator.clipboard.writeText(addr);
-            toast('Address copied: ' + addr);
-        }
-
-        refresh();
-        setInterval(refresh, 2000);
-    </script>
-</body>
-</html>
+/* ---------------- boot ---------------- */
+showTab(currentTab);
+refreshHeader();
+setInterval(() => { if (currentTab === 'overview') init_overview(); }, 10000);
+window.addEventListener('beforeunload', () => { if (evtSource) evtSource.close(); });
+</script>
+{% endblock %}

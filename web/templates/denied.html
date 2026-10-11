@@ -1,0 +1,10 @@
+{% extends "layout.html" %}
+{% block title %}Access denied — {{ APP_NAME }}{% endblock %}
+{% block content %}
+<div class="card empty" style="margin-top:8vh">
+    <div class="big">&#128274;</div>
+    <h2 style="font-size:17px;margin-bottom:8px;color:var(--text)">Access denied</h2>
+    <p>This area requires platform administrator permissions.</p>
+    <a class="btn" href="/" style="margin-top:16px;text-decoration:none">Back to overview</a>
+</div>
+{% endblock %}

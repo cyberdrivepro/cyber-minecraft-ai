@@ -1,4 +1,6 @@
 """Cyber Host handlers: hosted Minecraft server management via Telegram."""
+from typing import Optional, Union
+
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.filters import Command
@@ -36,7 +38,7 @@ def _server_text(row: DBServer) -> str:
 
 @router.message(Command("host"))
 @router.callback_query(F.data == "btn_host_servers")
-async def host_menu(event: Message | CallbackQuery, state: FSMContext):
+async def host_menu(event: Union[Message, CallbackQuery], state: FSMContext):
     """Show the Cyber Host menu."""
     await state.clear()
     text = (
@@ -55,7 +57,7 @@ async def host_menu(event: Message | CallbackQuery, state: FSMContext):
 
 @router.message(Command("servers"))
 @router.callback_query(F.data == "btn_my_servers")
-async def list_servers(event: Message | CallbackQuery):
+async def list_servers(event: Union[Message, CallbackQuery]):
     """List the user's hosted servers."""
     user_id = str(event.from_user.id)
     with get_db() as db:
@@ -97,7 +99,7 @@ async def list_servers(event: Message | CallbackQuery):
 
 @router.message(Command("newserver"))
 @router.callback_query(F.data == "btn_new_server")
-async def new_server(event: Message | CallbackQuery, state: FSMContext):
+async def new_server(event: Union[Message, CallbackQuery], state: FSMContext):
     """Start the server creation wizard."""
     await state.clear()
     await state.set_state(NewServerStates.waiting_for_name)
@@ -160,7 +162,7 @@ async def view_server_cmd(message: Message):
         return
     await message.answer(_server_text(row), parse_mode="Markdown", reply_markup=get_server_actions_keyboard(row.id, row.status))
 
-async def _load_server(callback: CallbackQuery, server_id: str) -> DBServer | None:
+async def _load_server(callback: CallbackQuery, server_id: str) -> Optional[DBServer]:
     with get_db() as db:
         return db.query(DBServer).filter(DBServer.id == server_id).first()
 

@@ -159,89 +159,105 @@ async def test_start_without_eula_rejected():
 # ----------------------------------------------------------------- API tests
 @pytest.mark.asyncio
 async def test_api_server_flow():
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        # Catalog
-        resp = await ac.get("/api/host/catalog")
-        assert resp.status_code == 200
-        assert "paper" in resp.json()["software"]
+    from tests.utils import make_auth_client
+    ac = await make_auth_client()
+    # Catalog is public
+    resp = await ac.get("/api/host/catalog")
+    assert resp.status_code == 200
+    assert "paper" in resp.json()["software"]
 
-        # Create
-        resp = await ac.post("/api/servers", json={
-            "name": "API Test Server", "software": "fabric", "mc_version": "1.21.4", "eula_accepted": True
-        })
-        assert resp.status_code == 200
-        server = resp.json()
-        sid = server["id"]
-        assert server["status"] == "offline"
+    # Unauthenticated requests are rejected before any data is touched
+    bare = AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
+    assert (await bare.get("/api/servers")).status_code == 401
+    await bare.aclose()
 
-        # Duplicate EULA rejection
-        resp = await ac.post("/api/servers", json={"name": "No EULA", "eula_accepted": False})
-        assert resp.status_code == 400
+    # Create
+    resp = await ac.post("/api/servers", json={
+        "name": "API Test Server", "software": "fabric", "mc_version": "1.21.4", "eula_accepted": True
+    })
+    assert resp.status_code == 200
+    server = resp.json()
+    sid = server["id"]
+    assert server["status"] == "offline"
 
-        # Start and wait for online
-        resp = await ac.post(f"/api/servers/{sid}/start")
-        assert resp.status_code == 200
-        assert resp.json()["queue_position"] >= 1
-        assert await wait_for_status(sid, {ServerStatus.ONLINE}) == ServerStatus.ONLINE
+    # Duplicate EULA rejection
+    resp = await ac.post("/api/servers", json={"name": "No EULA", "eula_accepted": False})
+    assert resp.status_code == 400
 
-        # Console and command
-        resp = await ac.get(f"/api/servers/{sid}/console")
-        assert resp.status_code == 200
-        assert any("Done" in line for line in resp.json()["lines"])
-        resp = await ac.post(f"/api/servers/{sid}/command", json={"command": "say api works"})
-        assert resp.status_code == 200
-        assert any("api works" in line for line in resp.json()["output"])
+    # Start and wait for online
+    resp = await ac.post(f"/api/servers/{sid}/start")
+    assert resp.status_code == 200
+    assert resp.json()["queue_position"] >= 1
+    assert await wait_for_status(sid, {ServerStatus.ONLINE}) == ServerStatus.ONLINE
 
-        # Players API
-        resp = await ac.post(f"/api/servers/{sid}/players", json={"kind": "bans", "action": "add", "player": "Griefer"})
-        assert resp.status_code == 200
-        resp = await ac.get(f"/api/servers/{sid}/players", params={"kind": "bans"})
-        assert [p["name"] for p in resp.json()["players"]] == ["Griefer"]
+    # Console and command
+    resp = await ac.get(f"/api/servers/{sid}/console")
+    assert resp.status_code == 200
+    assert any("Done" in line for line in resp.json()["lines"])
+    resp = await ac.post(f"/api/servers/{sid}/command", json={"command": "say api works"})
+    assert resp.status_code == 200
+    assert any("api works" in line for line in resp.json()["output"])
 
-        # Properties API
-        resp = await ac.put(f"/api/servers/{sid}/properties", json={"properties": {"difficulty": "hard"}})
-        assert resp.status_code == 200
-        resp = await ac.put(f"/api/servers/{sid}/properties", json={"properties": {"hacked-key": "x"}})
-        assert resp.status_code == 400
+    # Players API
+    resp = await ac.post(f"/api/servers/{sid}/players", json={"kind": "bans", "action": "add", "player": "Griefer"})
+    assert resp.status_code == 200
+    resp = await ac.get(f"/api/servers/{sid}/players", params={"kind": "bans"})
+    assert [p["name"] for p in resp.json()["players"]] == ["Griefer"]
 
-        # Backups API
-        resp = await ac.post(f"/api/servers/{sid}/backups")
-        assert resp.status_code == 200
-        backup_id = resp.json()["backup"]["id"]
-        resp = await ac.get(f"/api/servers/{sid}/backups/{backup_id}/download")
-        assert resp.status_code == 200
+    # Properties API
+    resp = await ac.put(f"/api/servers/{sid}/properties", json={"properties": {"difficulty": "hard"}})
+    assert resp.status_code == 200
+    # Form inputs arrive as strings — numeric properties must coerce (UPG regression)
+    resp = await ac.put(f"/api/servers/{sid}/properties", json={"properties": {"max-players": "42"}})
+    assert resp.status_code == 200
+    assert (await ac.get(f"/api/servers/{sid}/properties")).json()["max-players"] == "42"
+    resp = await ac.put(f"/api/servers/{sid}/properties", json={"properties": {"max-players": "99999"}})
+    assert resp.status_code == 400
+    resp = await ac.put(f"/api/servers/{sid}/properties", json={"properties": {"hacked-key": "x"}})
+    assert resp.status_code == 400
 
-        # Files API (safe listing)
-        resp = await ac.get(f"/api/servers/{sid}/files")
-        assert resp.status_code == 200
-        assert {"server.properties", "eula.txt"} <= {f["name"] for f in resp.json() if not f["is_dir"]}
+    # Backups API
+    resp = await ac.post(f"/api/servers/{sid}/backups")
+    assert resp.status_code == 200
+    backup_id = resp.json()["backup"]["id"]
+    resp = await ac.get(f"/api/servers/{sid}/backups/{backup_id}/download")
+    assert resp.status_code == 200
 
-        # Stop via API
-        resp = await ac.post(f"/api/servers/{sid}/stop")
-        assert resp.status_code == 200
-        assert await wait_for_status(sid, {ServerStatus.OFFLINE}) == ServerStatus.OFFLINE
+    # Files API (safe listing)
+    resp = await ac.get(f"/api/servers/{sid}/files")
+    assert resp.status_code == 200
+    assert {"server.properties", "eula.txt"} <= {f["name"] for f in resp.json() if not f["is_dir"]}
 
-        # Restore while offline
-        resp = await ac.post(f"/api/servers/{sid}/backups/{backup_id}/restore")
-        assert resp.status_code == 200
+    # Stop via API
+    resp = await ac.post(f"/api/servers/{sid}/stop")
+    assert resp.status_code == 200
+    assert await wait_for_status(sid, {ServerStatus.OFFLINE}) == ServerStatus.OFFLINE
 
-        # Server page renders
-        resp = await ac.get(f"/servers/{sid}")
-        assert resp.status_code == 200
-        assert "API Test Server" in resp.text
+    # Restore while offline
+    resp = await ac.post(f"/api/servers/{sid}/backups/{backup_id}/restore")
+    assert resp.status_code == 200
 
-        # Delete via API
-        resp = await ac.delete(f"/api/servers/{sid}")
-        assert resp.status_code == 200
-        resp = await ac.get(f"/api/servers/{sid}")
-        assert resp.status_code == 404
+    # Server page renders
+    resp = await ac.get(f"/servers/{sid}")
+    assert resp.status_code == 200
+    assert "API Test Server" in resp.text
+
+    # Delete via API
+    resp = await ac.delete(f"/api/servers/{sid}")
+    assert resp.status_code == 200
+    resp = await ac.get(f"/api/servers/{sid}")
+    assert resp.status_code == 404
 
 
 @pytest.mark.asyncio
 async def test_api_server_404s():
+    from tests.utils import make_auth_client
+    # Unauthenticated access gets 401 (never leaks existence)
     transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        assert (await ac.get("/api/servers/does_not_exist")).status_code == 404
-        assert (await ac.post("/api/servers/does_not_exist/start")).status_code == 409
-        assert (await ac.get("/servers/does_not_exist")).status_code == 404
+    async with AsyncClient(transport=transport, base_url="http://test") as bare:
+        assert (await bare.get("/api/servers/does_not_exist")).status_code == 401
+    # Authenticated access to a missing server gets 404
+    ac = await make_auth_client()
+    assert (await ac.get("/api/servers/does_not_exist")).status_code == 404
+    assert (await ac.post("/api/servers/does_not_exist/start")).status_code == 404
+    assert (await ac.get("/servers/does_not_exist")).status_code == 404

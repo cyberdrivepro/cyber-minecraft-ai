@@ -1,0 +1,88 @@
+{% extends "layout.html" %}
+{% block title %}My Servers — {{ APP_NAME }}{% endblock %}
+{% block nav_servers %}active{% endblock %}
+{% block pagetitle %}My Servers{% endblock %}
+{% block content %}
+<div class="card" style="margin-bottom:16px">
+    <div class="row">
+        <input type="text" id="search" placeholder="Search servers..." style="max-width:280px" oninput="render()">
+        <select id="statusFilter" style="max-width:170px" onchange="render()">
+            <option value="">All statuses</option>
+            <option value="online">Online</option>
+            <option value="offline">Offline</option>
+            <option value="starting">Starting / queued</option>
+            <option value="error">Error</option>
+        </select>
+        <select id="sortBy" style="max-width:170px" onchange="render()">
+            <option value="created">Newest first</option>
+            <option value="name">Name</option>
+            <option value="status">Status</option>
+        </select>
+        <a class="btn primary right" href="/servers/new" style="text-decoration:none">+ Create Server</a>
+    </div>
+</div>
+<div class="grid cols-2" id="serverGrid"></div>
+{% endblock %}
+{% block scripts %}
+<script>
+let servers = [];
+const badges = {online: 'ok', error: 'err', offline: 'muted', queued: 'warn', preparing: 'warn', starting: 'warn', stopping: 'warn'};
+
+async function load() {
+    try { servers = await api('/api/servers'); }
+    catch (e) { toast(e.message, 'err'); }
+    render();
+}
+
+function render() {
+    const q = document.getElementById('search').value.toLowerCase();
+    const st = document.getElementById('statusFilter').value;
+    const sort = document.getElementById('sortBy').value;
+    let list = servers.filter(s =>
+        (!q || s.name.toLowerCase().includes(q) || (s.address || '').includes(q)) &&
+        (!st || s.status === st || (st === 'starting' && ['queued','preparing','starting','stopping'].includes(s.status)))
+    );
+    if (sort === 'name') list.sort((a, b) => a.name.localeCompare(b.name));
+    else if (sort === 'status') list.sort((a, b) => a.status.localeCompare(b.status));
+
+    const grid = document.getElementById('serverGrid');
+    if (!list.length) {
+        grid.innerHTML = '<div class="card empty" style="grid-column:1/-1"><div class="big">&#9635;</div>' +
+            (servers.length ? 'No servers match your filters.' : 'No servers yet. Create your first free server.') + '</div>';
+        return;
+    }
+    grid.innerHTML = list.map(s => {
+        const uptime = s.uptime_seconds > 0 ? Math.floor(s.uptime_seconds/60) + 'm' : '—';
+        return `<div class="card">
+            <div class="row" style="margin-bottom:8px">
+                <strong style="font-size:15px">${esc(s.name)}</strong>
+                <span class="badge ${badges[s.status] || 'muted'} right">${esc(s.status)}</span>
+            </div>
+            <div class="muted" style="font-size:12.5px;margin-bottom:10px">
+                ${esc(s.software)} ${esc(s.mc_version)} &middot; RAM ${s.ram_mb} MB &middot;
+                players max ${s.max_players}<br>
+                ${s.address ? 'Address: <span class="mono">' + esc(s.address) + '</span>' : 'No address (offline)'} &middot; uptime ${uptime}
+            </div>
+            <div class="row">
+                <a class="btn small" href="/servers/${esc(s.id)}" style="text-decoration:none">Manage</a>
+                ${s.status === 'offline' || s.status === 'error'
+                    ? `<button class="btn small primary" onclick="startServer('${esc(s.id)}')">Start</button>`
+                    : `<button class="btn small" onclick="stopServer('${esc(s.id)}')">Stop</button>`}
+            </div>
+        </div>`;
+    }).join('');
+}
+
+async function startServer(id) {
+    try { await api(`/api/servers/${id}/start`, {method: 'POST'}); toast('Server queued for start'); setTimeout(load, 1200); }
+    catch (e) { toast(e.message, 'err'); }
+}
+async function stopServer(id) {
+    try { await api(`/api/servers/${id}/stop`, {method: 'POST'}); toast('Stop requested'); setTimeout(load, 1500); }
+    catch (e) { toast(e.message, 'err'); }
+}
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+load();
+setInterval(load, 8000);
+</script>
+{% endblock %}

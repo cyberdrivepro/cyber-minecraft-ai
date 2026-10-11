@@ -1,0 +1,313 @@
+#!/usr/bin/env python3
+"""cyber-minecraft-ai — platform control CLI.
+
+Usage examples (run from the repository root):
+
+    python3 scripts/cyber-minecraft-ai doctor
+    python3 scripts/cyber-minecraft-ai start              # launch the app
+    python3 scripts/cyber-minecraft-ai status             # app + servers via API
+    python3 scripts/cyber-minecraft-ai logs --tail 100    # tail server console
+    python3 scripts/cyber-minecraft-ai backup <server_id>
+    python3 scripts/cyber-minecraft-ai restore <server_id> <backup_id>
+    python3 scripts/cyber-minecraft-ai diagnose <server_id>
+    python3 scripts/cyber-minecraft-ai stop
+
+API commands talk to a running instance and authenticate with ADMIN_TOKEN
+(X-Admin-Token header). Set ADMIN_TOKEN in .env or the environment.
+"""
+import argparse
+import json
+import os
+import platform
+import shutil
+import socket
+import subprocess
+import sys
+import urllib.error
+import urllib.request
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO_ROOT))
+
+
+def _load_env() -> None:
+    env_file = REPO_ROOT / ".env"
+    if env_file.exists():
+        for line in env_file.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                k, v = line.split("=", 1)
+                os.environ.setdefault(k.strip(), v.strip().strip("'\""))
+
+
+_load_env()
+
+HOST = os.environ.get("HOST", "127.0.0.1")
+PORT = os.environ.get("PORT", "7860")
+BASE_URL = f"http://{HOST}:{PORT}"
+ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN", "")
+
+
+def ok(msg: str) -> None:
+    print(f"  \033[32m✓\033[0m {msg}")
+
+
+def warn(msg: str) -> None:
+    print(f"  \033[33m!\033[0m {msg}")
+
+
+def fail(msg: str) -> None:
+    print(f"  \033[31m✗\033[0m {msg}")
+
+
+def api_call(path: str, method: str = "GET", data: dict = None, timeout: int = 30):
+    req = urllib.request.Request(
+        f"{BASE_URL}{path}",
+        method=method,
+        headers={"Content-Type": "application/json", "X-Admin-Token": ADMIN_TOKEN},
+        data=json.dumps(data).encode() if data is not None else None,
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return resp.status, json.loads(resp.read().decode() or "{}")
+    except urllib.error.HTTPError as e:
+        try:
+            body = json.loads(e.read().decode())
+        except Exception:
+            body = {}
+        return e.code, body
+    except urllib.error.URLError as e:
+        raise ConnectionError(f"Cannot reach the platform at {BASE_URL} — is it running? ({e.reason})")
+
+
+# ------------------------------------------------------------------ commands
+def cmd_doctor(args):
+    """Offline environment validation."""
+    print("Cyber Minecraft AI — environment doctor")
+    print("=" * 46)
+
+    v = sys.version_info
+    if v >= (3, 9):
+        ok(f"Python {v.major}.{v.minor}.{v.micro}")
+    else:
+        fail(f"Python {v.major}.{v.minor} is too old; 3.9+ required")
+
+    for mod, package in [("fastapi", "fastapi"), ("sqlalchemy", "sqlalchemy"), ("pydantic", "pydantic"),
+                         ("aiogram", "aiogram"), ("psutil", "psutil"), ("httpx", "httpx"), ("PIL", "pillow")]:
+        try:
+            __import__(mod)
+            ok(f"{package} installed")
+        except ImportError:
+            fail(f"{package} missing — run: pip install -r requirements.txt")
+
+    java = shutil.which("java")
+    if java:
+        try:
+            out = subprocess.run([java, "-version"], capture_output=True, text=True, timeout=10)
+            version_line = (out.stderr or out.stdout).splitlines()[0]
+            ok(f"Java: {version_line.strip()}")
+        except Exception:
+            ok(f"Java found at {java}")
+    else:
+        warn("Java not found — real server.jar hosting and Fabric mod builds need Java 17/21")
+
+    if shutil.which("docker"):
+        ok("Docker available")
+    else:
+        warn("Docker not found (optional — needed only for container deployments)")
+
+    try:
+        import psutil
+        vm = psutil.virtual_memory()
+        disk = psutil.disk_usage(str(REPO_ROOT))
+        if vm.total >= 2 * 1024 ** 3:
+            ok(f"RAM: {vm.total // (1024**3)} GB total")
+        else:
+            warn(f"RAM: {vm.total // (1024**2)} MB — small; avoid loading local AI models")
+        if disk.free >= 2 * 1024 ** 3:
+            ok(f"Disk: {disk.free // (1024**3)} GB free")
+        else:
+            warn(f"Disk: only {disk.free // (1024**2)} MB free — worlds and backups need space")
+    except ImportError:
+        pass
+
+    env_file = REPO_ROOT / ".env"
+    if env_file.exists():
+        ok(".env file found")
+    else:
+        warn("No .env file — copy .env.example to .env and configure")
+
+    token = os.environ.get("TELEGRAM_BOT_TOKEN")
+    if token and token != "YOUR_TELEGRAM_BOT_TOKEN":
+        ok("TELEGRAM_BOT_TOKEN configured")
+    else:
+        warn("TELEGRAM_BOT_TOKEN not configured — the Telegram bot stays in standby")
+
+    if ADMIN_TOKEN:
+        ok("ADMIN_TOKEN configured (CLI/API management enabled)")
+    else:
+        warn("ADMIN_TOKEN empty — a random token is generated per boot; set it for CLI management")
+
+    print("\nDoctor finished.")
+
+
+def cmd_start(args):
+    print(f"Starting Cyber Minecraft AI on {HOST}:{PORT} ...")
+    logf = open(REPO_ROOT / "data" if (REPO_ROOT / "data").exists() else REPO_ROOT, "a")
+    proc = subprocess.Popen(
+        [sys.executable, str(REPO_ROOT / "main.py")],
+        cwd=str(REPO_ROOT),
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        start_new_session=True,
+    )
+    Path("/tmp/cyber-minecraft-ai.pid").write_text(str(proc.pid))
+    print(f"Started with PID {proc.pid}. Logs: run the app in the foreground with 'python3 main.py'.")
+    print(f"Dashboard: {BASE_URL}")
+
+
+def _find_pid():
+    pid_file = Path("/tmp/cyber-minecraft-ai.pid")
+    if pid_file.exists():
+        return int(pid_file.read_text().strip())
+    return None
+
+
+def cmd_stop(args):
+    pid = _find_pid()
+    if not pid:
+        warn("No PID file found (/tmp/cyber-minecraft-ai.pid). If you started the app another way, stop that process.")
+        return
+    try:
+        os.kill(pid, 15)
+        print(f"Sent SIGTERM to PID {pid}.")
+        Path("/tmp/cyber-minecraft-ai.pid").unlink(missing_ok=True)
+    except ProcessLookupError:
+        warn(f"PID {pid} is not running; removing stale PID file.")
+        Path("/tmp/cyber-minecraft-ai.pid").unlink(missing_ok=True)
+
+
+def cmd_status(args):
+    try:
+        code, health = api_call("/api/health")
+        if code == 200:
+            ok(f"app: {health['status']} v{health['version']} (db={'ok' if health['database'] else 'DEGRADED'})")
+        else:
+            fail(f"health returned {code}")
+        code, servers = api_call("/api/servers")
+        if code == 200:
+            if not servers:
+                print("  no servers created yet")
+            for s in servers:
+                addr = f" @ {s['address']}" if s.get("address") else ""
+                print(f"  [{s['status']:>8}] {s['id']}  {s['name']} ({s['software']} {s['mc_version']}){addr}")
+        online = [s for s in (servers or []) if s["status"] == "online"]
+        print(f"\n{servers and len(servers) or 0} server(s), {len(online)} online")
+    except ConnectionError as e:
+        fail(str(e))
+        sys.exit(1)
+
+
+def cmd_logs(args):
+    try:
+        code, data = api_call(f"/api/servers/{args.server_id}/console?tail={args.tail}")
+        if code != 200:
+            fail(f"console unavailable ({code}: {data.get('detail', '')})")
+            sys.exit(1)
+        for line in data["lines"]:
+            print(line)
+    except ConnectionError as e:
+        fail(str(e))
+        sys.exit(1)
+
+
+def cmd_backup(args):
+    code, data = api_call(f"/api/servers/{args.server_id}/backups", method="POST")
+    if code == 200:
+        ok(f"backup created: {data['backup']['filename']} ({data['backup']['size_bytes'] // 1024} KB)")
+    else:
+        fail(f"backup failed ({code}): {data.get('detail', '')}")
+        sys.exit(1)
+
+
+def cmd_restore(args):
+    if not args.yes and input(f"Restore backup {args.backup_id} on {args.server_id}? The current world is replaced. [y/N] ") != "y":
+        warn("aborted")
+        return
+    code, data = api_call(f"/api/servers/{args.server_id}/backups/{args.backup_id}/restore", method="POST")
+    if code == 200:
+        ok("backup restored")
+    else:
+        fail(f"restore failed ({code}): {data.get('detail', '')}")
+        sys.exit(1)
+
+
+def cmd_diagnose(args):
+    code, data = api_call(f"/api/servers/{args.server_id}/network")
+    if code != 200:
+        fail(f"diagnostics failed ({code}): {data.get('detail', '')}")
+        sys.exit(1)
+    icons = {"ok": "✓", "failed": "✗", "unavailable": "!"}
+    print(f"Runtime status: {data['runtime_status']}")
+    for name, check in data["checks"].items():
+        print(f"  {icons[check['status']]} {name}: {check.get('error', check.get('latency_ms', 'OK'))}")
+    addresses = data["addresses"]
+    print(f"  java address: {addresses['java']}")
+    print(f"  bedrock address: {addresses['bedrock']}")
+    for note in data["notes"]:
+        print(f"  note: {note}")
+
+
+def cmd_update(args):
+    if not (REPO_ROOT / ".git").exists():
+        fail("Not a git repository; update manually.")
+        sys.exit(1)
+    print("Pulling latest code ...")
+    subprocess.run(["git", "pull", "--ff-only"], cwd=str(REPO_ROOT), check=False)
+    print("Installing updated dependencies ...")
+    subprocess.run([sys.executable, "-m", "pip", "install", "-r", str(REPO_ROOT / "requirements.txt")], check=False)
+    print("Update complete. Restart the app to apply (cyber-minecraft-ai stop && cyber-minecraft-ai start).")
+
+
+def main():
+    parser = argparse.ArgumentParser(prog="cyber-minecraft-ai", description="Cyber Minecraft AI platform control CLI")
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    sub.add_parser("doctor", help="validate the local environment").set_defaults(func=cmd_doctor)
+
+    sub.add_parser("start", help="start the platform in the background").set_defaults(func=cmd_start)
+    sub.add_parser("stop", help="stop a platform started via 'start'").set_defaults(func=cmd_stop)
+
+    sub.add_parser("status", help="show app health and server list").set_defaults(func=cmd_status)
+
+    p = sub.add_parser("logs", help="print a server's console tail")
+    p.add_argument("server_id")
+    p.add_argument("--tail", type=int, default=100)
+    p.set_defaults(func=cmd_logs)
+
+    p = sub.add_parser("backup", help="create a server backup")
+    p.add_argument("server_id")
+    p.set_defaults(func=cmd_backup)
+
+    p = sub.add_parser("restore", help="restore a server backup")
+    p.add_argument("server_id")
+    p.add_argument("backup_id", type=int)
+    p.add_argument("--yes", action="store_true", help="skip confirmation")
+    p.set_defaults(func=cmd_restore)
+
+    p = sub.add_parser("diagnose", help="run network diagnostics for a server")
+    p.add_argument("server_id")
+    p.set_defaults(func=cmd_diagnose)
+
+    sub.add_parser("update", help="git pull + dependency refresh").set_defaults(func=cmd_update)
+
+    args = parser.parse_args()
+    if args.command in ("status", "logs", "backup", "restore", "diagnose") and not ADMIN_TOKEN:
+        print("ADMIN_TOKEN is not set. Add ADMIN_TOKEN=<secret> to .env to use API commands.")
+        sys.exit(1)
+    args.func(args)
+
+
+if __name__ == "__main__":
+    main()

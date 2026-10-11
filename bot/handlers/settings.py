@@ -1,4 +1,6 @@
 """Settings and system status handlers."""
+from typing import Union
+
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.filters import Command
@@ -11,7 +13,7 @@ router = Router(name="settings_router")
 
 @router.message(Command("settings"))
 @router.callback_query(F.data == "btn_settings")
-async def handle_settings(event: Message | CallbackQuery):
+async def handle_settings(event: Union[Message, CallbackQuery]):
     """Display real system and AI model status."""
     status = model_manager.get_hardware_status()
     

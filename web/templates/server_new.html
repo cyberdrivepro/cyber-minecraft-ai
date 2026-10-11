@@ -1,0 +1,95 @@
+{% extends "layout.html" %}
+{% block title %}Create Server — {{ APP_NAME }}{% endblock %}
+{% block nav_create %}active{% endblock %}
+{% block pagetitle %}Create a Minecraft Server{% endblock %}
+{% block content %}
+<div style="max-width:640px;margin:0 auto">
+    <div class="card" style="padding:26px">
+        <h3>Server configuration</h3>
+        <div class="field"><label>Server name *</label>
+            <input type="text" id="name" placeholder="My Survival World" maxlength="128"></div>
+        <div class="field"><label>Description (optional)</label>
+            <input type="text" id="description" placeholder="What is this server about?" maxlength="256"></div>
+        <div class="grid cols-2">
+            <div class="field"><label>Edition / software *</label>
+                <select id="software" onchange="renderVersions()">
+                    {% for key, info in software.items() %}
+                    <option value="{{ key }}">{{ info.label }}</option>
+                    {% endfor %}
+                </select></div>
+            <div class="field"><label>Minecraft version *</label>
+                <select id="mc_version"></select></div>
+        </div>
+        <div class="grid cols-2">
+            <div class="field"><label>Gamemode</label>
+                <select id="gamemode"><option>survival</option><option>creative</option><option>adventure</option></select></div>
+            <div class="field"><label>Difficulty</label>
+                <select id="difficulty"><option>normal</option><option>peaceful</option><option>easy</option><option>hard</option></select></div>
+        </div>
+        <div class="grid cols-2">
+            <div class="field"><label>Max players (1–200)</label>
+                <input type="number" id="max_players" value="20" min="1" max="200"></div>
+            <div class="field"><label>World seed (optional)</label>
+                <input type="text" id="level_seed" maxlength="64" placeholder="random when empty"></div>
+        </div>
+        <div class="field"><label>MOTD</label><input type="text" id="motd" value="A Cyber Host server" maxlength="128"></div>
+        <div class="row" style="margin-bottom:12px">
+            <label style="margin:0"><input type="checkbox" id="pvp" checked style="width:auto"> PvP enabled</label>
+            <label style="margin:0"><input type="checkbox" id="whitelist_enabled" style="width:auto"> Whitelist enabled</label>
+        </div>
+        <div class="card" style="box-shadow:none;background:var(--bg-soft);margin-bottom:16px">
+            <label style="margin:0;display:flex;gap:10px;align-items:flex-start;font-size:13px;color:var(--text)">
+                <input type="checkbox" id="eula" style="width:auto;margin-top:2px">
+                <span>I accept the <a href="https://aka.ms/MinecraftEULA" target="_blank" rel="noopener">Minecraft EULA</a>.
+                Mojang requires every server operator to agree to the EULA. Required to create the server.</span>
+            </label>
+        </div>
+        <div class="muted" style="font-size:12.5px;margin-bottom:16px" id="compatNote"></div>
+        <div class="row">
+            <button class="btn primary" id="createBtn" onclick="createServer()">Create server</button>
+            <a class="btn" href="/servers" style="text-decoration:none">Cancel</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+const SOFTWARE = {{ software | tojson }};
+function renderVersions() {
+    const sw = SOFTWARE[document.getElementById('software').value];
+    const sel = document.getElementById('mc_version');
+    sel.innerHTML = sw.versions.map(v => `<option value="${v}">${v}</option>`).join('');
+    document.getElementById('compatNote').textContent = sw.notes + (sw.java_version ? ' Requires Java ' + sw.java_version + ' + an uploaded server jar for real hosting.' : '');
+}
+renderVersions();
+
+async function createServer() {
+    const btn = document.getElementById('createBtn');
+    const name = document.getElementById('name').value.trim();
+    if (!name) return toast('Server name is required', 'err');
+    if (!document.getElementById('eula').checked) return toast('You must accept the Minecraft EULA', 'err');
+    btn.disabled = true;
+    try {
+        const server = await api('/api/servers', {method: 'POST', body: JSON.stringify({
+            name: name,
+            description: document.getElementById('description').value,
+            software: document.getElementById('software').value,
+            mc_version: document.getElementById('mc_version').value,
+            gamemode: document.getElementById('gamemode').value,
+            difficulty: document.getElementById('difficulty').value,
+            max_players: parseInt(document.getElementById('max_players').value) || 20,
+            level_seed: document.getElementById('level_seed').value,
+            motd: document.getElementById('motd').value,
+            pvp: document.getElementById('pvp').checked,
+            whitelist_enabled: document.getElementById('whitelist_enabled').checked,
+            eula_accepted: true
+        })});
+        toast('Server created!');
+        window.location.href = '/servers/' + server.id;
+    } catch (e) {
+        toast(e.message, 'err');
+        btn.disabled = false;
+    }
+}
+</script>
+{% endblock %}

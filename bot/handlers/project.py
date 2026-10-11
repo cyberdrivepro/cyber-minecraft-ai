@@ -1,5 +1,7 @@
 """Project management handlers: creation, listing, inspection, and deletion."""
 import uuid
+from typing import Union
+
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery, FSInputFile
 from aiogram.filters import Command
@@ -27,7 +29,7 @@ class NewModStates(StatesGroup):
 
 @router.message(Command("newmod"))
 @router.callback_query(F.data == "btn_new_mod")
-async def start_new_mod(event: Message | CallbackQuery, state: FSMContext):
+async def start_new_mod(event: Union[Message, CallbackQuery], state: FSMContext):
     """Initiate new mod creation wizard."""
     await state.clear()
     await state.set_state(NewModStates.waiting_for_edition)
@@ -135,7 +137,7 @@ async def process_prompt(message: Message, state: FSMContext):
 
 @router.message(Command("myprojects"))
 @router.callback_query(F.data == "btn_my_projects")
-async def list_my_projects(event: Message | CallbackQuery):
+async def list_my_projects(event: Union[Message, CallbackQuery]):
     """List all projects for the requesting user."""
     user_id = str(event.from_user.id)
     with get_db() as db:
@@ -252,7 +254,7 @@ async def delete_project_callback(callback: CallbackQuery):
 
 @router.message(Command("cancel"))
 @router.callback_query(F.data == "btn_cancel")
-async def cancel_handler(event: Message | CallbackQuery, state: FSMContext):
+async def cancel_handler(event: Union[Message, CallbackQuery], state: FSMContext):
     """Cancel active operation."""
     await state.clear()
     msg = "❌ Operation cancelled. Back to main menu."

@@ -1,5 +1,7 @@
 """AI Asset Studio and file upload handlers (textures, reference photos, models)."""
 from io import BytesIO
+from typing import Union
+
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery, BufferedInputFile
 from aiogram.filters import Command
@@ -12,7 +14,7 @@ router = Router(name="assets_router")
 
 @router.message(Command("assets"))
 @router.callback_query(F.data == "btn_asset_studio")
-async def handle_assets_menu(event: Message | CallbackQuery):
+async def handle_assets_menu(event: Union[Message, CallbackQuery]):
     """Show AI Asset Studio options."""
     text = (
         "🎨 *AI ASSET STUDIO*\n\n"

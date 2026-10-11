@@ -32,8 +32,9 @@ _env_path = Path(".env").resolve()
 _load_env_file(_env_path)
 
 class Settings(BaseSettings):
-    APP_NAME: str = "CYBER MINECRAFT AI MOD BUILDER"
-    APP_VERSION: str = "1.0.0"
+    APP_NAME: str = "CYBER MINECRAFT AI"
+    APP_SUBTITLE: str = "Build Mods. Host Worlds. Control Everything."
+    APP_VERSION: str = "2.0.0"
     DEBUG: bool = os.environ.get("DEBUG", "false").lower() in ("true", "1")
     
     # Server / Hugging Face configuration
@@ -58,6 +59,13 @@ class Settings(BaseSettings):
     
     # Admin Security
     ADMIN_TOKEN: str = os.environ.get("ADMIN_TOKEN", secrets.token_urlsafe(16))
+    ADMIN_USERNAME: str = os.environ.get("ADMIN_USERNAME", "")
+    ADMIN_PASSWORD: Optional[str] = os.environ.get("ADMIN_PASSWORD", None)
+    
+    # Web authentication (set false only for private single-user installs)
+    AUTH_REQUIRED: bool = os.environ.get("AUTH_REQUIRED", "true").lower() in ("true", "1")
+    ALLOW_REGISTRATION: bool = os.environ.get("ALLOW_REGISTRATION", "true").lower() in ("true", "1")
+    DOWNLOAD_TOKEN_TTL_HOURS: int = int(os.environ.get("DOWNLOAD_TOKEN_TTL_HOURS", "24"))
     
     # Build & Repair limits
     MAX_CONCURRENT_BUILDS: int = int(os.environ.get("MAX_CONCURRENT_BUILDS", "1"))
@@ -100,13 +108,71 @@ class Settings(BaseSettings):
             # Standard sqlite path format
             self.DATABASE_URL = f"sqlite:///{db_path}"
 
-# Supported server software catalog (software -> versions)
+def _sw(label, versions, edition="java", java_version="21", source="", notes="", plugin_support=None, platform_support="linux, windows, docker"):
+    """Catalog entry describing a server software family and its real requirements."""
+    return {
+        "label": label,
+        "versions": versions,
+        "edition": edition,
+        "java_version": None if edition == "bedrock" else java_version,
+        "download_source": source,
+        "notes": notes,
+        "plugins": plugin_support,
+        "platforms": platform_support,
+    }
+
+# Supported server software catalog. Every entry documents the *real* runtime
+# requirements; the platform never claims a type can run when its prerequisites
+# (Java version, OS support, an uploaded binary) are missing.
 SERVER_SOFTWARE: Dict[str, Any] = {
-    "paper": {"label": "Paper (plugins)", "versions": ["1.21.4", "1.21.1", "1.20.6", "1.20.4", "1.8.8"]},
-    "vanilla": {"label": "Vanilla", "versions": ["1.21.4", "1.21.1", "1.20.4", "1.19.4", "1.16.5"]},
-    "fabric": {"label": "Fabric (mods)", "versions": ["1.21.4", "1.21.1", "1.20.4", "1.20.1", "1.19.2"]},
-    "forge": {"label": "Forge (mods)", "versions": ["1.21.4", "1.20.4", "1.19.2", "1.18.2", "1.12.2"]},
-    "bedrock": {"label": "Bedrock Dedicated", "versions": ["1.21.50", "1.21.40", "1.20.60"]},
+    "paper": _sw(
+        "Paper (plugins)", ["1.21.4", "1.21.1", "1.20.6", "1.20.4", "1.8.8"],
+        java_version="21", source="https://papermc.io/downloads",
+        notes="Drop-in Bukkit/Spigot plugin support. Upload the Paper jar via the server page.",
+        plugin_support="bukkit plugins",
+    ),
+    "vanilla": _sw(
+        "Vanilla", ["1.21.4", "1.21.1", "1.20.4", "1.19.4", "1.16.5"],
+        source="https://www.minecraft.net/download/server",
+        notes="Official Mojang server jar. EULA acceptance is required by Mojang.",
+        plugin_support=None,
+    ),
+    "fabric": _sw(
+        "Fabric (mods)", ["1.21.4", "1.21.1", "1.20.4", "1.20.1", "1.19.2"],
+        source="https://fabricmc.net/use/server",
+        notes="Lightweight mod loader. Requires the Fabric server launcher jar.",
+        plugin_support=None,
+    ),
+    "forge": _sw(
+        "Forge (mods)", ["1.21.4", "1.20.4", "1.19.2", "1.18.2", "1.12.2"],
+        java_version="17", source="https://files.minecraftforge.net",
+        notes="Older versions (1.16 and below) require Java 8; 1.17+ requires Java 16/17+.",
+        plugin_support=None,
+    ),
+    "purpur": _sw(
+        "Purpur (plugins)", ["1.21.4", "1.21.1", "1.20.4"],
+        source="https://purpurmc.org/downloads",
+        notes="Paper fork with extra configuration. Plugin-compatible with Paper.",
+        plugin_support="bukkit plugins",
+    ),
+    "spigot": _sw(
+        "Spigot (plugins)", ["1.21.4", "1.20.4", "1.19.4", "1.16.5"],
+        source="https://www.spigotmc.org",
+        notes="BuildTools-produced jar. Paper is recommended as a faster alternative.",
+        plugin_support="bukkit plugins",
+    ),
+    "quilt": _sw(
+        "Quilt (mods)", ["1.21.1", "1.20.1", "1.19.2"],
+        source="https://quiltmc.org/install/server",
+        notes="Fabric-compatible mod loader. Most Fabric mods work on Quilt.",
+        plugin_support=None,
+    ),
+    "bedrock": _sw(
+        "Bedrock Dedicated", ["1.21.50", "1.21.40", "1.20.60"],
+        edition="bedrock", source="https://www.minecraft.net/download/server/bedrock",
+        notes="Official BDS binary. Linux builds are provided by Mojang; Windows builds run natively. Worlds are NOT interchangeable with Java Edition.",
+        platform_support="linux, windows, docker",
+    ),
 }
 
 settings = Settings()
