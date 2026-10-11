@@ -97,3 +97,46 @@ class AppSetting(Base):
     key = Column(String(64), primary_key=True)
     value = Column(Text, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+class Server(Base):
+    __tablename__ = "servers"
+    
+    id = Column(String(64), primary_key=True)
+    owner_id = Column(String(64), nullable=False, default="web_admin")
+    name = Column(String(128), nullable=False)
+    software = Column(String(32), nullable=False, default="paper")  # paper, vanilla, fabric, forge, bedrock
+    mc_version = Column(String(32), nullable=False, default="1.21.4")
+    status = Column(String(32), default="offline")  # offline, queued, preparing, starting, online, stopping, error
+    status_detail = Column(String(256), default="Server is offline")
+    address = Column(String(256), nullable=True)
+    port = Column(Integer, nullable=True)
+    eula_accepted = Column(Boolean, default=False)
+    motd = Column(String(128), default="A Cyber Host server")
+    gamemode = Column(String(32), default="survival")
+    difficulty = Column(String(32), default="normal")
+    max_players = Column(Integer, default=20)
+    level_seed = Column(String(64), nullable=True)
+    pvp = Column(Boolean, default=True)
+    whitelist_enabled = Column(Boolean, default=False)
+    world_name = Column(String(64), default="world")
+    ram_mb = Column(Integer, default=1024)
+    auto_backup = Column(Boolean, default=True)
+    jar_ready = Column(Boolean, default=False)
+    playtime_seconds = Column(Integer, default=0)
+    last_started = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    backups = relationship("ServerBackup", back_populates="server", cascade="all, delete-orphan")
+
+class ServerBackup(Base):
+    __tablename__ = "server_backups"
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    server_id = Column(String(64), ForeignKey("servers.id"), nullable=False)
+    filename = Column(String(256), nullable=False)
+    size_bytes = Column(Integer, default=0)
+    kind = Column(String(32), default="manual")  # manual, auto
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    server = relationship("Server", back_populates="backups")

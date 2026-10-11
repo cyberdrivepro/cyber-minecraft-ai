@@ -6,8 +6,10 @@ from logger import get_logger
 from storage.database import init_db
 from jobs.queue import job_manager
 from jobs.runner import execute_build_job
+from servers.manager import server_manager
 from bot.bot import start_telegram_bot, stop_telegram_bot
 from web.routes import router as web_router
+from web.routes_servers import router as host_router
 
 logger = get_logger("app")
 
@@ -22,7 +24,10 @@ async def lifespan(app: FastAPI):
     # 2. Start Build Queue Workers
     job_manager.start_workers(execute_build_job)
     
-    # 3. Start Telegram Bot asynchronously
+    # 3. Bring the Cyber Host manager online (start queue + monitoring)
+    await server_manager.startup()
+    
+    # 4. Start Telegram Bot asynchronously
     await start_telegram_bot()
     
     logger.info(f"Cyber Minecraft AI is online and listening on {settings.HOST}:{settings.PORT}")
@@ -31,15 +36,17 @@ async def lifespan(app: FastAPI):
     # Clean shutdown
     logger.info("Shutting down Cyber Minecraft AI services...")
     await stop_telegram_bot()
+    await server_manager.shutdown()
     await job_manager.stop_workers()
     logger.info("All services cleanly terminated.")
 
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
-    description="Production-ready AI-powered Minecraft Mod Creation Platform",
+    description="Production-ready AI-powered Minecraft Mod Creation and Server Hosting Platform",
     lifespan=lifespan
 )
 
 # Include web dashboard & API routes
 app.include_router(web_router)
+app.include_router(host_router)

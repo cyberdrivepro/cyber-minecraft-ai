@@ -7,8 +7,9 @@ from fastapi.templating import Jinja2Templates
 from config import settings
 from ai.model_manager import model_manager
 from storage.database import get_db
-from storage.models import Project, BuildJob as DBBuildJob
+from storage.models import Project, BuildJob as DBBuildJob, Server as DBServer
 from storage.storage_manager import storage
+from servers.manager import server_manager
 from jobs.queue import job_manager
 from logger import get_logger
 
@@ -40,9 +41,12 @@ async def dashboard_page(request: Request):
         fabric_count = db.query(Project).filter(Project.edition == "fabric").count()
         total_builds = db.query(DBBuildJob).count()
         success_builds = db.query(DBBuildJob).filter(DBBuildJob.status == "completed").count()
+        raw_servers = db.query(DBServer).order_by(DBServer.created_at.desc()).all()
+        servers = [server_manager.serialize(s) for s in raw_servers]
 
     hardware = model_manager.get_hardware_status()
     queue_len = job_manager.queue.qsize()
+    online_servers = sum(1 for s in servers if s["status"] == "online")
 
     return templates.TemplateResponse(
         request=request,
@@ -56,7 +60,10 @@ async def dashboard_page(request: Request):
             "total_builds": total_builds,
             "success_builds": success_builds,
             "queue_length": queue_len,
-            "max_concurrent": job_manager.max_concurrent
+            "max_concurrent": job_manager.max_concurrent,
+            "servers": servers,
+            "servers_count": len(servers),
+            "online_servers": online_servers
         }
     )
 

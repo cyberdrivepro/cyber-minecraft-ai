@@ -114,6 +114,43 @@ The system defaults to running an open-source model locally without paying for p
 
 ---
 
+## 🖥 CYBER HOST — FREE MINECRAFT SERVER HOSTING (ATERNOS-STYLE)
+
+Beyond mod generation, the platform now hosts real Minecraft servers from the dashboard and the Telegram bot:
+
+- **One-Click Server Creation**: Choose Paper, Vanilla, Fabric, Forge, or Bedrock Dedicated with a supported version, world seed, and EULA acceptance.
+- **Aternos-Style Start Queue**: Starting a server places it in a queue (`MAX_CONCURRENT_SERVERS` slots); queue position is shown live.
+- **Dynamic Address**: Every start allocates a fresh address/port from `SERVER_PORT_MIN`–`SERVER_PORT_MAX` — exactly like Aternos, the address changes on each start.
+- **Live Console**: Real-time log streaming with a command input (`help`, `list`, `say`, `op`, `whitelist`, `ban`, `time set`, `weather`, `tps`, `save-all`, `stop`...).
+- **Player Management**: Operators, whitelist, and bans — applied through console commands while online and persisted in vanilla-format `ops.json` / `whitelist.json` / `banned-players.json` when offline.
+- **Server Settings**: `server.properties` editor (MOTD, gamemode, difficulty, max players, seed, PvP, whitelist, view distance...) with restart-needed detection.
+- **Backups**: Auto-backup on every stop plus manual backups, with restore, download, delete, and per-server retention (`MAX_BACKUPS_PER_SERVER`).
+- **File Manager**: Browse and download files inside each server directory (path-traversal protected).
+- **Real Java Runtime (optional)**: Upload a `server.jar` on the server page and — with Java 21+ installed — servers run as real Java processes with console I/O piping. Without a jar, the built-in **embedded console runtime** drives the identical lifecycle and state files so the whole hosting flow works offline.
+- **Idle Auto-Shutdown (optional)**: Set `SERVER_IDLE_SHUTDOWN_MINUTES` to stop servers nobody is using, Aternos-style.
+
+Host commands in Telegram: `/host`, `/servers`, `/newserver`, `/server <id>` (start/stop/restart/backup inline buttons).
+
+### Cyber Host REST API
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `/servers/{id}` | `GET` | Aternos-style server control page |
+| `/api/host/catalog` | `GET` | Software/version catalog + host capabilities |
+| `/api/servers` | `GET`/`POST` | List servers / create a server |
+| `/api/servers/{id}` | `GET`/`DELETE` | Full state (console, players, backups, files) / delete |
+| `/api/servers/{id}/start\|stop\|restart` | `POST` | Power control |
+| `/api/servers/{id}/console` | `GET` | Console log tail |
+| `/api/servers/{id}/command` | `POST` | Send a console command |
+| `/api/servers/{id}/players` | `GET`/`POST` | Read / modify ops, whitelist, bans |
+| `/api/servers/{id}/properties` | `GET`/`PUT` | Read / update server.properties |
+| `/api/servers/{id}/backups` | `GET`/`POST` | List / create backups |
+| `/api/servers/{id}/backups/{bid}/restore\|download` | `POST`/`GET` | Restore / download a backup |
+| `/api/servers/{id}/files` | `GET` | List server files |
+| `/api/servers/{id}/upload` | `POST` | Upload a real `server.jar` |
+
+---
+
 ## 🛡 SECURITY & BUILD SANDBOX
 
 To prevent injection attacks from user-provided prompts:
@@ -137,6 +174,7 @@ To prevent injection attacks from user-provided prompts:
 | `/api/ai/load` | `POST` | Manually load AI model into memory |
 | `/api/ai/unload` | `POST` | Unload AI model to release RAM |
 | `/api/download/{uid}/{pid}/{v}` | `GET` | Download compiled `.mcaddon` or `.jar` |
+| `/servers/{id}` | `GET` | Cyber Host server control page (see hosting section) |
 
 ---
 
