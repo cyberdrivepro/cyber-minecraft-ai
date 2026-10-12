@@ -2,7 +2,6 @@
 import psutil
 from pathlib import Path
 from typing import Optional
-from datetime import datetime
 
 from fastapi import APIRouter, Request, HTTPException, Depends, Response
 from pydantic import BaseModel
@@ -10,6 +9,7 @@ from fastapi.responses import HTMLResponse, FileResponse, RedirectResponse, JSON
 from fastapi.templating import Jinja2Templates
 from config import settings, SERVER_SOFTWARE
 from ai.model_manager import model_manager
+from core.clock import utcnow
 from core.auth import (
     register_user,
     authenticate,
@@ -50,7 +50,7 @@ def _page_context(request: Request, **extra) -> dict:
     ctx = {
         "user": {"id": user.id, "username": user.username, "role": user.role} if user else None,
         "auth_required": settings.AUTH_REQUIRED,
-        "year": datetime.utcnow().year,
+        "year": utcnow().year,
     }
     ctx.update(extra)
     return ctx

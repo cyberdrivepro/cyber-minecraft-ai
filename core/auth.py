@@ -9,8 +9,10 @@ import hmac
 import secrets
 from contextlib import contextmanager
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Optional
+
+from core.clock import utcnow
 
 from fastapi import Request, HTTPException
 
@@ -89,7 +91,7 @@ def create_session(user_id: str, user_agent: str = "") -> str:
         db.add(UserSession(
             token=token,
             user_id=user_id,
-            expires_at=datetime.utcnow() + timedelta(hours=SESSION_TTL_HOURS),
+            expires_at=utcnow() + timedelta(hours=SESSION_TTL_HOURS),
             user_agent=(user_agent or "")[:256],
         ))
     return token
@@ -108,7 +110,7 @@ def get_session_user(token: Optional[str]) -> Optional[User]:
         return None
     with get_db() as db:
         sess = db.query(UserSession).filter(UserSession.token == token).first()
-        if not sess or sess.expires_at < datetime.utcnow():
+        if not sess or sess.expires_at < utcnow():
             return None
         user = db.query(User).filter(User.id == sess.user_id).first()
         return user
@@ -120,14 +122,14 @@ def session_user_from_request(request: Request) -> Optional[User]:
 
 def login_rate_limited(key: str) -> bool:
     """True when the key exceeded MAX_LOGIN_ATTEMPTS inside the window."""
-    now = datetime.utcnow()
+    now = utcnow()
     recent = [t for t in _login_attempts.get(key, []) if now - t < timedelta(minutes=LOGIN_WINDOW_MINUTES)]
     _login_attempts[key] = recent
     return len(recent) >= MAX_LOGIN_ATTEMPTS
 
 
 def record_login_attempt(key: str) -> None:
-    now = datetime.utcnow()
+    now = utcnow()
     # Prune stale keys so the map cannot grow without bound.
     stale = [k for k, ts in _login_attempts.items()
              if all(now - t >= timedelta(minutes=LOGIN_WINDOW_MINUTES) for t in ts)]

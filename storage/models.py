@@ -1,8 +1,9 @@
 """SQLAlchemy database models for Cyber Minecraft AI Mod Builder."""
-from datetime import datetime
 from typing import Optional
 from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Boolean, Index
 from sqlalchemy.orm import declarative_base, relationship
+
+from core.clock import utcnow
 
 Base = declarative_base()
 
@@ -15,8 +16,8 @@ class User(Base):
     password_hash = Column(String(256), nullable=True)  # pbkdf2 hash; NULL for bot-only accounts
     role = Column(String(32), default="user")  # admin, user
     telegram_linked = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    last_active = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
+    last_active = Column(DateTime, default=utcnow, onupdate=utcnow)
     settings_json = Column(Text, default="{}")
     
     projects = relationship("Project", back_populates="user", cascade="all, delete-orphan")
@@ -29,7 +30,7 @@ class UserSession(Base):
     
     token = Column(String(64), primary_key=True)
     user_id = Column(String(64), ForeignKey("users.id"), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
     expires_at = Column(DateTime, nullable=False)
     user_agent = Column(String(256), nullable=True)
     
@@ -45,7 +46,7 @@ class ServerShare(Base):
     user_id = Column(String(64), ForeignKey("users.id"), nullable=False)
     role = Column(String(32), default="viewer")  # viewer, moderator, admin
     granted_by = Column(String(64), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
 
 
 class DownloadToken(Base):
@@ -61,7 +62,7 @@ class DownloadToken(Base):
     download_count = Column(Integer, default=0)
     expires_at = Column(DateTime, nullable=False)
     revoked = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
 
 
 class Schedule(Base):
@@ -79,7 +80,7 @@ class Schedule(Base):
     last_run_at = Column(DateTime, nullable=True)
     next_run_at = Column(DateTime, nullable=True)
     created_by = Column(String(64), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
     
     runs = relationship("ScheduleRun", back_populates="schedule", cascade="all, delete-orphan")
 
@@ -92,7 +93,7 @@ class ScheduleRun(Base):
     schedule_id = Column(Integer, ForeignKey("schedules.id"), nullable=False)
     status = Column(String(32), default="running")  # running, success, failed, skipped
     detail = Column(Text, nullable=True)
-    started_at = Column(DateTime, default=datetime.utcnow)
+    started_at = Column(DateTime, default=utcnow)
     finished_at = Column(DateTime, nullable=True)
     
     schedule = relationship("Schedule", back_populates="runs")
@@ -108,7 +109,7 @@ class AuditEvent(Base):
     target = Column(String(256), nullable=True)
     detail = Column(String(512), nullable=True)
     ip = Column(String(64), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
 
 class Project(Base):
     __tablename__ = "projects"
@@ -121,8 +122,8 @@ class Project(Base):
     description = Column(Text, nullable=True)
     current_version = Column(Integer, default=1)
     status = Column(String(32), default="draft")
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
     
     user = relationship("User", back_populates="projects")
     versions = relationship("ProjectVersion", back_populates="project", cascade="all, delete-orphan")
@@ -139,7 +140,7 @@ class ProjectVersion(Base):
     change_summary = Column(String(256), default="Initial generation")
     build_status = Column(String(32), default="unbuilt")
     artifact_path = Column(String(512), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
     
     project = relationship("Project", back_populates="versions")
 
@@ -154,7 +155,7 @@ class BuildJob(Base):
     error_message = Column(Text, nullable=True)
     repair_attempts = Column(Integer, default=0)
     artifact_url = Column(String(512), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
     started_at = Column(DateTime, nullable=True)
     completed_at = Column(DateTime, nullable=True)
     
@@ -169,7 +170,7 @@ class Asset(Base):
     filename = Column(String(128), nullable=False)
     file_path = Column(String(512), nullable=False)
     metadata_json = Column(Text, default="{}")
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
     
     project = relationship("Project", back_populates="assets")
 
@@ -181,14 +182,14 @@ class Message(Base):
     user_id = Column(String(64), nullable=False)
     role = Column(String(32), nullable=False)  # user, assistant, system
     content = Column(Text, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
 
 class AppSetting(Base):
     __tablename__ = "settings"
     
     key = Column(String(64), primary_key=True)
     value = Column(Text, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
 
 class Server(Base):
     __tablename__ = "servers"
@@ -217,8 +218,8 @@ class Server(Base):
     jar_ready = Column(Boolean, default=False)
     playtime_seconds = Column(Integer, default=0)
     last_started = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
     
     backups = relationship("ServerBackup", back_populates="server", cascade="all, delete-orphan")
 
@@ -235,6 +236,6 @@ class ServerBackup(Base):
     filename = Column(String(256), nullable=False)
     size_bytes = Column(Integer, default=0)
     kind = Column(String(32), default="manual")  # manual, auto
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
     
     server = relationship("Server", back_populates="backups")

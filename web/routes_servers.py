@@ -7,8 +7,6 @@ import asyncio
 import json
 import shutil
 import uuid
-from datetime import datetime
-import uuid
 from pathlib import Path
 from typing import Optional, List
 
@@ -18,6 +16,7 @@ from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
 from config import settings, SERVER_SOFTWARE
+from core.clock import utcnow
 from servers.manager import server_manager, ServerStatus
 from servers.runtime import find_java_executable
 from servers.networking import diagnose_server, public_host
@@ -628,7 +627,7 @@ async def create_schedule(server_id: str, req: ScheduleCreateRequest, user=Depen
         db.add(schedule)
         db.flush()
         db.refresh(schedule)
-        schedule.next_run_at = compute_next_run(schedule, datetime.utcnow())
+        schedule.next_run_at = compute_next_run(schedule, utcnow())
         data = _serialize_schedule(schedule)
     audit(user.id, "schedule_created", target=server_id, detail=f"{req.action} {req.name}")
     return {"success": True, "schedule": data}
@@ -647,7 +646,7 @@ async def update_schedule(schedule_id: int, req: ScheduleUpdateRequest, user=Dep
             schedule.enabled = req.enabled
         if req.name is not None and req.name.strip():
             schedule.name = req.name.strip()[:128]
-        schedule.next_run_at = compute_next_run(schedule, datetime.utcnow())
+        schedule.next_run_at = compute_next_run(schedule, utcnow())
         data = _serialize_schedule(schedule)
     audit(user.id, "schedule_updated", target=str(schedule_id))
     return {"success": True, "schedule": data}
@@ -904,6 +903,43 @@ async def upload_server_software(server_id: str, file: UploadFile = File(...), u
         tmp_path.unlink(missing_ok=True)
     audit(user.id, "server_software_uploaded", target=server_id, detail=file.filename)
     return {"success": True, "size_bytes": size, "message": message}
+
+@router.post("/api/servers/{server_id}/files/upload")
+
+
+async def upload_server_file(server_id: str, file: UploadFile = File(...), path: str = "",
+                             user=Depends(require_user)):
+    """Upload any file (mod .jar, plugin .jar, behavior pack, config…) into a
+    folder inside the server directory. The target folder is created when missing."""
+    require_server_access(user, server_id, "admin")
+    if not file.filename or not file.filename.strip():
+        raise HTTPException(status_code=400, detail="No file name supplied.")
+    base = server_manager.get_server_dir(server_id)
+    from core.security import validate_safe_path
+    try:
+        target_dir = validate_safe_path(base, base / path) if path else base
+        target = validate_safe_path(base, target_dir / Path(file.filename).name)
+    except SecurityError:
+        raise HTTPException(status_code=400, detail="Invalid target folder.")
+    if target.is_dir():
+        raise HTTPException(status_code=409, detail="A folder with that name already exists.")
+    target_dir.mkdir(parents=True, exist_ok=True)
+    max_bytes = settings.SERVER_JAR_MAX_MB * 1024 * 1024
+    size = 0
+    try:
+        with open(target, "wb") as out:
+            while chunk := await file.read(1024 * 1024):
+                size += len(chunk)
+                if size > max_bytes:
+                    raise HTTPException(
+                        status_code=413,
+                        detail=f"File exceeds the {settings.SERVER_JAR_MAX_MB} MB upload limit.")
+                out.write(chunk)
+    finally:
+        if size == 0 and target.is_file():
+            target.unlink(missing_ok=True)
+    audit(user.id, "file_uploaded", target=server_id, detail=f"{path}/{file.filename}" if path else file.filename)
+    return {"success": True, "filename": target.name, "path": path, "size_bytes": size}
 
 # ------------------------------------------------------------------ UI page
 @router.get("/servers/{server_id}", response_class=HTMLResponse)

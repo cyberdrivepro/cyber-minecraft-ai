@@ -97,16 +97,17 @@ function canDo(level) { return ROLE_LEVEL >= level; }
 <!-- ============ PLAYERS ============ -->
 <script type="text/html" id="tpl-players">
 <div class="grid cols-3">
-    <div class="card"><h3>Operators (ops)</h3><div id="list-ops"></div>
+    <div class="card"><h3>Operators (ops) <span class="badge muted right" id="count-ops">…</span></h3><div id="list-ops"></div>
         {% if role_level >= 1 %}<div class="row" style="margin-top:10px"><input type="text" id="add-ops" placeholder="Player name">
         <button class="btn small" onclick="playerAction('ops','add')">Op</button></div>{% endif %}</div>
-    <div class="card"><h3>Whitelist</h3><div id="list-whitelist"></div>
+    <div class="card"><h3>Whitelist <span class="badge muted right" id="count-whitelist">…</span></h3><div id="list-whitelist"></div>
         {% if role_level >= 1 %}<div class="row" style="margin-top:10px"><input type="text" id="add-whitelist" placeholder="Player name">
         <button class="btn small" onclick="playerAction('whitelist','add')">Add</button></div>{% endif %}</div>
-    <div class="card"><h3>Banned players</h3><div id="list-bans"></div>
+    <div class="card"><h3>Banned players <span class="badge muted right" id="count-bans">…</span></h3><div id="list-bans"></div>
         {% if role_level >= 1 %}<div class="row" style="margin-top:10px"><input type="text" id="add-bans" placeholder="Player name">
         <button class="btn small danger" onclick="playerAction('bans','add')">Ban</button></div>{% endif %}</div>
 </div>
+<p class="muted" style="font-size:12px;margin-top:12px">Live "who is online" lists require a real server jar: the console `list` command reports online players while the server is running.</p>
 </script>
 
 <!-- ============ WORLDS ============ -->
@@ -133,12 +134,20 @@ function canDo(level) { return ROLE_LEVEL >= level; }
         {% if role_level >= 2 %}
         <button class="btn small" onclick="mkdirPrompt()">+ New folder</button>
         <input type="file" id="uploadFile" style="display:none" onchange="uploadFile()">
-        <button class="btn small" onclick="document.getElementById('uploadFile').click()">⬆ Upload</button>
+        <button class="btn small" onclick="document.getElementById('uploadFile').click()">⬆ Server software</button>
+        {% if server.software in ('fabric', 'forge', 'quilt') %}
+        <input type="file" id="modFile" accept=".jar" style="display:none" onchange="uploadInto('mods', 'modFile')">
+        <button class="btn small" onclick="document.getElementById('modFile').click()">🧩 Add mod (.jar → mods/)</button>
+        {% endif %}
+        {% if server.software in ('paper', 'spigot', 'purpur') %}
+        <input type="file" id="pluginFile" accept=".jar" style="display:none" onchange="uploadInto('plugins', 'pluginFile')">
+        <button class="btn small" onclick="document.getElementById('pluginFile').click()">🧩 Add plugin (.jar → plugins/)</button>
+        {% endif %}
         {% endif %}
         <input type="text" id="fileSearch" placeholder="Filter..." style="max-width:200px;margin-left:auto" oninput="renderFiles()">
     </div>
     <table class="list" id="fileTable"><thead><tr><th>Name</th><th>Size</th><th>Modified</th><th></th></tr></thead><tbody></tbody></table>
-    <p class="muted" style="font-size:11.5px;margin-top:10px">The file browser is restricted to this server's directory. Text files open in the editor; sensitive files are backed up as .bak before saving.</p>
+    <p class="muted" style="font-size:11.5px;margin-top:10px">Mods and plugins are files: they load when the real server jar runs (a restart is needed after adding them). The file browser is restricted to this server's directory; sensitive files are backed up as .bak before saving.</p>
 </div>
 <div id="editorWrap" style="display:none;margin-top:16px">
     <div class="card">
@@ -347,6 +356,8 @@ async function refreshPlayers() {
     for (const kind of ['ops', 'whitelist', 'bans']) {
         try {
             const d = await api(`/api/servers/${SID}/players?kind=${kind}`);
+            const cnt = document.getElementById('count-' + kind);
+            if (cnt) cnt.textContent = d.players.length;
             const el = document.getElementById('list-' + kind);
             el.innerHTML = d.players.length
                 ? d.players.map(p => `<div class="row" style="padding:5px 0;border-bottom:1px solid var(--border)">
@@ -485,6 +496,18 @@ async function uploadFile() {
         if (!resp.ok) throw new Error(body.detail || resp.statusText);
         toast(body.message || 'Uploaded');
         loadFiles(cwd); refreshHeader();
+    } catch (e) { toast(e.message, 'err'); }
+}
+async function uploadInto(dir, inputId) {
+    const file = document.getElementById(inputId).files[0];
+    if (!file) return;
+    const fd = new FormData(); fd.append('file', file);
+    try {
+        const resp = await fetch(`/api/servers/${SID}/files/upload?path=${encodeURIComponent(dir)}`, {method: 'POST', body: fd});
+        const body = await resp.json();
+        if (!resp.ok) throw new Error(body.detail || resp.statusText);
+        toast(body.filename + ' added to ' + dir + '/ — restart the server to load it');
+        loadFiles(dir);
     } catch (e) { toast(e.message, 'err'); }
 }
 

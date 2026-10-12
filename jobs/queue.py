@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Dict, Optional, Callable, Awaitable, List
 from pydantic import BaseModel, Field
 from config import settings
+from core.clock import utcnow
 from logger import get_logger
 
 logger = get_logger("jobs.queue")
@@ -32,7 +33,7 @@ class BuildJobItem(BaseModel):
     logs: str = ""
     error_message: Optional[str] = None
     artifact_path: Optional[str] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
 
@@ -88,7 +89,7 @@ class JobManager:
         """Update job stage and notify callback."""
         job.status = status
         job.current_stage = stage_text
-        job.logs += f"\n[{datetime.utcnow().strftime('%H:%M:%S')}] {stage_text}"
+        job.logs += f"\n[{utcnow().strftime('%H:%M:%S')}] {stage_text}"
         
         callback = self.callbacks.get(job.job_id)
         if callback:
@@ -103,7 +104,7 @@ class JobManager:
         while self._running:
             try:
                 job = await self.queue.get()
-                job.started_at = datetime.utcnow()
+                job.started_at = utcnow()
                 try:
                     await runner_func(job)
                 except Exception as e:
@@ -111,7 +112,7 @@ class JobManager:
                     job.status = JobStatus.FAILED
                     job.error_message = str(e)
                 finally:
-                    job.completed_at = datetime.utcnow()
+                    job.completed_at = utcnow()
                     self.completed_jobs[job.job_id] = job
                     if job.job_id in self.active_jobs:
                         del self.active_jobs[job.job_id]

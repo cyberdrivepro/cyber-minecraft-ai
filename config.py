@@ -126,51 +126,79 @@ def _sw(label, versions, edition="java", java_version="21", source="", notes="",
 # (Java version, OS support, an uploaded binary) are missing.
 SERVER_SOFTWARE: Dict[str, Any] = {
     "paper": _sw(
-        "Paper (plugins)", ["1.21.4", "1.21.1", "1.20.6", "1.20.4", "1.8.8"],
+        "Paper (plugins)",
+        ["1.21.4", "1.21.3", "1.21.1", "1.21", "1.20.6", "1.20.4", "1.20.1",
+         "1.19.4", "1.18.2", "1.17.1", "1.16.5", "1.12.2", "1.8.8"],
         java_version="21", source="https://papermc.io/downloads",
-        notes="Drop-in Bukkit/Spigot plugin support. Upload the Paper jar via the server page.",
+        notes="Drop-in Bukkit/Spigot plugin support. Java 21 is required for 1.20.5+; "
+              "1.18–1.20.4 need Java 17; 1.17 needs Java 16+; older builds run on Java 8–11. "
+              "Upload the Paper jar via the server page.",
         plugin_support="bukkit plugins",
     ),
     "vanilla": _sw(
-        "Vanilla", ["1.21.4", "1.21.1", "1.20.4", "1.19.4", "1.16.5"],
+        "Vanilla",
+        ["1.21.4", "1.21.3", "1.21.1", "1.21", "1.20.6", "1.20.4", "1.20.1",
+         "1.19.4", "1.19.2", "1.18.2", "1.17.1", "1.16.5", "1.12.2", "1.8.9"],
         source="https://www.minecraft.net/download/server",
-        notes="Official Mojang server jar. EULA acceptance is required by Mojang.",
+        notes="Official Mojang server jar. Java 21 is required for 1.20.5+; "
+              "1.18–1.20.4 need Java 17+; 1.17 needs Java 16+; older builds run on Java 8+. "
+              "EULA acceptance is required by Mojang.",
         plugin_support=None,
     ),
     "fabric": _sw(
-        "Fabric (mods)", ["1.21.4", "1.21.1", "1.20.4", "1.20.1", "1.19.2"],
+        "Fabric (mods)",
+        ["1.21.4", "1.21.3", "1.21.1", "1.21", "1.20.6", "1.20.4", "1.20.1",
+         "1.19.4", "1.19.2", "1.18.2", "1.17.1", "1.16.5", "1.14.4"],
         source="https://fabricmc.net/use/server",
-        notes="Lightweight mod loader. Requires the Fabric server launcher jar.",
+        notes="Lightweight mod loader. Java 21 is required for 1.20.5+; older versions need "
+              "Java 17 or lower (match the loader installer's recommendation). Requires the "
+              "Fabric server launcher jar. Drop mod .jar files into the mods/ folder.",
         plugin_support=None,
     ),
     "forge": _sw(
-        "Forge (mods)", ["1.21.4", "1.20.4", "1.19.2", "1.18.2", "1.12.2"],
+        "Forge (mods)",
+        ["1.21.4", "1.21.1", "1.20.6", "1.20.4", "1.20.1", "1.19.4", "1.19.2",
+         "1.18.2", "1.17.1", "1.16.5", "1.12.2", "1.8.9"],
         java_version="17", source="https://files.minecraftforge.net",
-        notes="Older versions (1.16 and below) require Java 8; 1.17+ requires Java 16/17+.",
+        notes="1.21+ requires Java 21; 1.17–1.20 require Java 16/17; 1.16 and below require "
+              "Java 8. Upload the Forge installer-produced jar (or run the installer) and drop "
+              "mod .jar files into the mods/ folder.",
         plugin_support=None,
     ),
     "purpur": _sw(
-        "Purpur (plugins)", ["1.21.4", "1.21.1", "1.20.4"],
+        "Purpur (plugins)",
+        ["1.21.4", "1.21.3", "1.21.1", "1.20.6", "1.20.4", "1.20.1",
+         "1.19.4", "1.18.2", "1.16.5"],
         source="https://purpurmc.org/downloads",
-        notes="Paper fork with extra configuration. Plugin-compatible with Paper.",
+        notes="Paper fork with extra configuration. Java 21 for 1.20.5+, Java 17 for older. "
+              "Plugin-compatible with Paper.",
         plugin_support="bukkit plugins",
     ),
     "spigot": _sw(
-        "Spigot (plugins)", ["1.21.4", "1.20.4", "1.19.4", "1.16.5"],
+        "Spigot (plugins)",
+        ["1.21.4", "1.21.1", "1.20.6", "1.20.4", "1.20.1", "1.19.4",
+         "1.18.2", "1.17.1", "1.16.5", "1.12.2", "1.8.8"],
         source="https://www.spigotmc.org",
-        notes="BuildTools-produced jar. Paper is recommended as a faster alternative.",
+        notes="BuildTools-produced jar. Java 21 for 1.20.5+, Java 17 for 1.18+, Java 8 for "
+              "older. Paper is recommended as a faster alternative.",
         plugin_support="bukkit plugins",
     ),
     "quilt": _sw(
-        "Quilt (mods)", ["1.21.1", "1.20.1", "1.19.2"],
+        "Quilt (mods)",
+        ["1.21.4", "1.21.1", "1.20.4", "1.20.1", "1.19.4", "1.19.2",
+         "1.18.2", "1.17.1", "1.16.5"],
         source="https://quiltmc.org/install/server",
-        notes="Fabric-compatible mod loader. Most Fabric mods work on Quilt.",
+        notes="Fabric-compatible mod loader. Most Fabric mods work on Quilt. Drop mod .jar "
+              "files into the mods/ folder.",
         plugin_support=None,
     ),
     "bedrock": _sw(
-        "Bedrock Dedicated", ["1.21.50", "1.21.40", "1.20.60"],
+        "Bedrock Dedicated",
+        ["1.21.60", "1.21.50", "1.21.40", "1.21.20", "1.21.2", "1.21.0", "1.20.80", "1.20.60"],
         edition="bedrock", source="https://www.minecraft.net/download/server/bedrock",
-        notes="Official BDS binary. Linux builds are provided by Mojang; Windows builds run natively. Worlds are NOT interchangeable with Java Edition.",
+        notes="Official BDS binary; no Java required. Linux builds are provided by Mojang; "
+              "Windows builds run natively. Worlds are NOT interchangeable with Java Edition. "
+              "Behavior packs/add-ons go into the behavior_packs and resource_packs folders.",
         platform_support="linux, windows, docker",
     ),
 }
