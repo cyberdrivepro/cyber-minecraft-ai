@@ -8,6 +8,8 @@ import asyncio
 from datetime import datetime, timedelta
 from typing import Optional
 
+from core.clock import utcnow
+
 from storage.database import get_db
 from storage.models import Schedule, ScheduleRun
 from servers.manager import server_manager, ServerStatus
@@ -89,7 +91,7 @@ class SchedulerService:
         with get_db() as db:
             for schedule in db.query(Schedule).all():
                 if schedule.enabled and schedule.next_run_at is None:
-                    schedule.next_run_at = compute_next_run(schedule, datetime.utcnow())
+                    schedule.next_run_at = compute_next_run(schedule, utcnow())
         self._task = asyncio.create_task(self._loop())
         logger.info("Schedule service online.")
 
@@ -115,7 +117,7 @@ class SchedulerService:
             await asyncio.sleep(POLL_SECONDS)
 
     async def _tick(self) -> None:
-        now = datetime.utcnow()
+        now = utcnow()
         with get_db() as db:
             due = (
                 db.query(Schedule)
@@ -149,11 +151,11 @@ class SchedulerService:
                     if run:
                         run.status = status
                         run.detail = detail
-                        run.finished_at = datetime.utcnow()
+                        run.finished_at = utcnow()
                     schedule = db.query(Schedule).filter(Schedule.id == schedule_id).first()
                     if schedule and status == "failed" and schedule.action == "backup":
                         # Retry failed backups at the next tick by pulling next run closer.
-                        schedule.next_run_at = datetime.utcnow() + timedelta(minutes=5)
+                        schedule.next_run_at = utcnow() + timedelta(minutes=5)
             finally:
                 self._inflight.discard(schedule_id)
 

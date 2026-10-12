@@ -1,9 +1,10 @@
 """Tests for the durable scheduler and world management."""
 import asyncio
 import zipfile
-from datetime import datetime
+from core.clock import utcnow
 
 import pytest
+import pytest_asyncio
 
 from app import app  # noqa: F401  ensures singletons exist
 from servers.manager import server_manager, ServerStatus
@@ -13,7 +14,7 @@ from storage.models import Schedule as DBSchedule, ScheduleRun as DBScheduleRun
 from tests.utils import make_auth_client
 
 
-@pytest.fixture(autouse=True)
+@pytest_asyncio.fixture(autouse=True)
 async def running_host():
     await server_manager.startup()
     await scheduler.startup()
@@ -24,7 +25,7 @@ async def running_host():
 
 @pytest.mark.asyncio
 async def test_compute_next_run_interval():
-    now = datetime.utcnow()
+    now = utcnow()
     s = DBSchedule(server_id="x", name="t", action="backup", interval_minutes=30)
     nxt = compute_next_run(s, now)
     assert nxt is not None and nxt > now
@@ -36,7 +37,7 @@ async def test_compute_next_run_interval():
 
 @pytest.mark.asyncio
 async def test_compute_next_run_daily():
-    now = datetime.utcnow()
+    now = utcnow()
     s = DBSchedule(server_id="x", name="t", action="restart", daily_time="23:59")
     nxt = compute_next_run(s, now)
     assert nxt is not None
@@ -72,7 +73,7 @@ async def test_schedule_api_and_execution():
     # Force the schedule due and let the scheduler run it
     with get_db() as db:
         row = db.query(DBSchedule).filter(DBSchedule.id == schedule["id"]).first()
-        row.next_run_at = datetime.utcnow() - __import__("datetime").timedelta(seconds=1)
+        row.next_run_at = utcnow() - __import__("datetime").timedelta(seconds=1)
     await asyncio.sleep(3)  # scheduler polls every 30s? no: force a tick
     # Run a manual tick instead of waiting
     await scheduler._tick()
@@ -83,7 +84,7 @@ async def test_schedule_api_and_execution():
         assert "backup-" in (runs[0].detail or "")
         # Next run was rescheduled
         row = db.query(DBSchedule).filter(DBSchedule.id == schedule["id"]).first()
-        assert row.next_run_at is not None and row.next_run_at > datetime.utcnow()
+        assert row.next_run_at is not None and row.next_run_at > utcnow()
 
     # Runs history API
     resp = await ac.get(f"/api/schedules/{schedule['id']}/runs")
@@ -116,7 +117,7 @@ async def test_schedule_overlap_prevention():
     scheduler._inflight.add(schedule_id)
     with get_db() as db:
         row = db.query(DBSchedule).filter(DBSchedule.id == schedule_id).first()
-        row.next_run_at = datetime.utcnow() - __import__("datetime").timedelta(seconds=5)
+        row.next_run_at = utcnow() - __import__("datetime").timedelta(seconds=5)
     await scheduler._tick()
     with get_db() as db:
         runs = db.query(DBScheduleRun).filter(DBScheduleRun.schedule_id == schedule_id).all()

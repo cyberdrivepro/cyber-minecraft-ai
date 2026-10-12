@@ -23,8 +23,8 @@ def _server_text(row: DBServer) -> str:
     address = f"`{row.address}`" if row.address else "_offline — start to get an address_"
     uptime = ""
     if row.status == "online" and row.last_started:
-        from datetime import datetime
-        seconds = int((datetime.utcnow() - row.last_started).total_seconds())
+        from core.clock import utcnow
+        seconds = int((utcnow() - row.last_started).total_seconds())
         uptime = f"\n• Session uptime: {seconds // 60}m {seconds % 60}s"
     return (
         f"🖥 *SERVER: {row.name}*\n\n"

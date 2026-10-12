@@ -7,7 +7,7 @@ success.
 """
 import socket
 import time
-from datetime import datetime
+from core.clock import utcnow
 from typing import Any, Dict, List, Optional
 
 from config import settings
@@ -129,7 +129,7 @@ def diagnose_server(server_id: str) -> Dict[str, Any]:
         "runtime_status": status,
         "addresses": addresses,
         "checks": checks,
-        "checked_at": datetime.utcnow().isoformat(),
+        "checked_at": utcnow().isoformat(),
         "notes": [
             "A web HTTPS URL (e.g. a Hugging Face Space) does NOT accept Minecraft game connections.",
             "Minecraft Java uses TCP; Bedrock uses UDP. Both need a real public host and open port or a TCP/UDP tunnel.",

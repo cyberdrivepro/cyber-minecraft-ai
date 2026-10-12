@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Callable, Awaitable, List, Optional
 
 from config import settings
+from core.clock import utcnow
 from logger import get_logger
 
 logger = get_logger("servers.runtime")
@@ -79,7 +80,7 @@ def write_state_list(server_dir: Path, filename: str, entries: List[dict]) -> No
     path.write_text(json.dumps(entries, indent=2), encoding="utf-8")
 
 def _ts() -> str:
-    return datetime.utcnow().strftime("%H:%M:%S")
+    return utcnow().strftime("%H:%M:%S")
 
 class BaseRuntime(ABC):
     """Common interface for hosted server runtimes."""
@@ -143,7 +144,7 @@ class EmbeddedRuntime(BaseRuntime):
         self._write_initial_state()
         self._online = True
         self._stop_requested = False
-        self._started_at = datetime.utcnow()
+        self._started_at = utcnow()
         await self._log(f'[{_ts()}] [Server thread/INFO]: Done (1.842s)! For help, type "help"')
 
     def _write_initial_state(self) -> None:
@@ -231,7 +232,7 @@ class EmbeddedRuntime(BaseRuntime):
         elif base == "status":
             uptime = ""
             if self._started_at:
-                seconds = int((datetime.utcnow() - self._started_at).total_seconds())
+                seconds = int((utcnow() - self._started_at).total_seconds())
                 uptime = f" | Uptime: {seconds // 60}m {seconds % 60}s"
             await out(f"Server '{self.ctx.name}' is online ({self.ctx.software} {self.ctx.mc_version}, port {self.ctx.port}{uptime})")
         elif base == "stop":
@@ -302,7 +303,7 @@ class EmbeddedRuntime(BaseRuntime):
             entries.append({
                 "uuid": f"offline:{player.lower()}",
                 "name": player,
-                "created": datetime.utcnow().isoformat(),
+                "created": utcnow().isoformat(),
                 "source": "Cyber Host",
                 "reason": "Banned by an operator"
             })

@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Any
 
 from config import settings, SERVER_SOFTWARE
+from core.clock import utcnow
 from core.security import validate_safe_path, safe_extract_zip
 from storage.database import get_db
 from storage.models import Server as DBServer, ServerBackup as DBServerBackup
@@ -233,7 +234,7 @@ class ServerManager:
         properties = self._build_properties(row)
         self._write_properties(sdir, properties)
         (sdir / "eula.txt").write_text(
-            "#Accepted via Cyber Host\n" + datetime.utcnow().strftime("#%Y-%m-%d %H:%M:%S") + "\neula=true\n",
+            "#Accepted via Cyber Host\n" + utcnow().strftime("#%Y-%m-%d %H:%M:%S") + "\neula=true\n",
             encoding="utf-8"
         )
         self.get_world_dir(server_id, row.world_name)
@@ -307,7 +308,7 @@ class ServerManager:
 
     @staticmethod
     def _write_properties(sdir: Path, properties: Dict[str, str]) -> None:
-        lines = ["#Minecraft server properties (Cyber Host)", "#%s" % datetime.utcnow().strftime("%a %b %d %H:%M:%S %Z %Y")]
+        lines = ["#Minecraft server properties (Cyber Host)", "#%s" % utcnow().strftime("%a %b %d %H:%M:%S %Z %Y")]
         for key, value in properties.items():
             lines.append(f"{key}={value}")
         (sdir / "server.properties").write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -374,7 +375,7 @@ class ServerManager:
             row.port = port
             row.status = ServerStatus.STARTING
             row.status_detail = f"Starting {software} {mc_version}..."
-            row.last_started = datetime.utcnow()
+            row.last_started = utcnow()
             ram_mb = row.ram_mb
             world_name = row.world_name
             properties = self._build_properties(row)
@@ -418,8 +419,8 @@ class ServerManager:
         state.runtime = runtime
         try:
             await runtime.start()
-            state.started_at = datetime.utcnow()
-            state.last_activity = datetime.utcnow()
+            state.started_at = utcnow()
+            state.last_activity = utcnow()
             with get_db() as db:
                 row = self._db_get(db, server_id)
                 if row:
@@ -491,7 +492,7 @@ class ServerManager:
         if not state or not state.runtime:
             raise ValueError("Server is not online; commands require a running server.")
         await self._console_log(server_id, f"> {command}")
-        state.last_activity = datetime.utcnow()
+        state.last_activity = utcnow()
         try:
             return await state.runtime.send_command(command)
         finally:
@@ -538,7 +539,7 @@ class ServerManager:
             if kind == "ops":
                 entry["level"] = 4
             if kind == "bans":
-                entry.update({"created": datetime.utcnow().isoformat(), "source": "Cyber Host", "reason": "Banned by an operator"})
+                entry.update({"created": utcnow().isoformat(), "source": "Cyber Host", "reason": "Banned by an operator"})
             entries.append(entry)
             write_state_list(sdir, filename, entries)
             return f"Applied offline: {player} -> {kind} (added)"
@@ -610,7 +611,7 @@ class ServerManager:
                 raise ValueError("Server not found")
             world_name = row.world_name
         bdir = self.get_backups_dir(server_id)
-        stamp = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+        stamp = utcnow().strftime("%Y%m%d-%H%M%S")
         filename = f"backup-{stamp}-{kind}.zip"
         dest = bdir / filename
         with zipfile.ZipFile(dest, "w", zipfile.ZIP_DEFLATED) as zf:
@@ -835,7 +836,7 @@ class ServerManager:
         if not world.is_dir():
             return None
         out_dir = self.get_backups_dir(server_id)
-        stamp = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+        stamp = utcnow().strftime("%Y%m%d-%H%M%S")
         dest = out_dir / f"world-{world_name}-{stamp}.zip"
         with zipfile.ZipFile(dest, "w", zipfile.ZIP_DEFLATED) as zf:
             for fpath in sorted(world.rglob("*")):
@@ -888,7 +889,7 @@ class ServerManager:
         while True:
             await asyncio.sleep(60)
             try:
-                now = datetime.utcnow()
+                now = utcnow()
                 with get_db() as db:
                     online = db.query(DBServer).filter(DBServer.status == ServerStatus.ONLINE).all()
                     for row in online:
@@ -912,7 +913,7 @@ class ServerManager:
         state = self._states.get(row.id)
         uptime_seconds = 0
         if state and state.started_at and row.status == ServerStatus.ONLINE:
-            uptime_seconds = int((datetime.utcnow() - state.started_at).total_seconds())
+            uptime_seconds = int((utcnow() - state.started_at).total_seconds())
         return {
             "id": row.id,
             "owner_id": row.owner_id,

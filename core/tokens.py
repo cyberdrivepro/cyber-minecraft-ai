@@ -6,11 +6,12 @@ at creation time. Public URLs never embed user IDs, server credentials or
 filesystem paths.
 """
 import secrets
-from datetime import datetime, timedelta
+from datetime import timedelta
 from pathlib import Path
 from typing import Optional
 
 from config import settings
+from core.clock import utcnow
 from storage.database import get_db
 from storage.models import DownloadToken
 from core.auth import audit
@@ -42,7 +43,7 @@ def create_token(
             user_id=user_id,
             target=target[:512],
             max_downloads=max_downloads,
-            expires_at=datetime.utcnow() + timedelta(hours=max(1, min(ttl, 24 * 30))),
+            expires_at=utcnow() + timedelta(hours=max(1, min(ttl, 24 * 30))),
         ))
     audit(user_id, "download_token_created", target=target, detail=f"kind={kind} ttl={ttl}h", ip=ip)
     return token
@@ -58,7 +59,7 @@ def resolve_token(token: str) -> Optional[Path]:
         row = db.query(DownloadToken).filter(DownloadToken.token == token).first()
         if not row or row.revoked:
             return None
-        if row.expires_at < datetime.utcnow():
+        if row.expires_at < utcnow():
             return None
         if row.max_downloads is not None and row.download_count >= row.max_downloads:
             return None
@@ -96,7 +97,7 @@ def list_tokens(user_id: str, server_id: Optional[str] = None):
                 "revoked": r.revoked,
                 "download_count": r.download_count or 0,
                 "max_downloads": r.max_downloads,
-                "expired": r.expires_at < datetime.utcnow(),
+                "expired": r.expires_at < utcnow(),
             }
             for r in q.order_by(DownloadToken.created_at.desc()).limit(50).all()
         ]
