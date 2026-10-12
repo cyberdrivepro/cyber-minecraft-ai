@@ -74,6 +74,7 @@ class HostedServerState:
         self.server_id = server_id
         self.console: deque = deque(maxlen=CONSOLE_BUFFER_LINES)
         self.runtime = None
+        self.port: Optional[int] = None
         self.started_at: Optional[datetime] = None
         self.last_activity: Optional[datetime] = None
         self.queue_position: Optional[int] = None
@@ -111,14 +112,20 @@ class ServerManager:
 
     # ------------------------------------------------------------ lifecycle
     async def startup(self) -> None:
-        """Reset stale statuses from a previous host run and start queue workers."""
+        """Reset stale statuses from a previous host run, resume the servers
+        that were online before the restart, and start queue workers."""
+        resume_ids: List[str] = []
         with get_db() as db:
-            stale = db.query(DBServer).filter(DBServer.status != ServerStatus.OFFLINE).all()
-            for s in stale:
-                s.status = ServerStatus.OFFLINE
-                s.address = None
-                s.port = None
-                s.status_detail = "Host restarted; server was reset to offline"
+            for s in db.query(DBServer).all():
+                # Remember the servers whose desired state is running so they
+                # can be brought back up automatically (data persists on disk).
+                if s.auto_start and s.status != ServerStatus.ERROR:
+                    resume_ids.append(s.id)
+                if s.status != ServerStatus.OFFLINE:
+                    s.status = ServerStatus.OFFLINE
+                    s.address = None
+                    s.port = None
+                    s.status_detail = "Host restarted; server was reset to offline"
         # Recreate the queue so it binds to the current event loop (a fresh
         # loop must never reuse a queue bound to a previous one).
         self._queue = asyncio.Queue()
@@ -126,6 +133,14 @@ class ServerManager:
         for i in range(max(1, settings.MAX_CONCURRENT_SERVERS)):
             self._workers.append(asyncio.create_task(self._worker_loop(i)))
         self._monitor_task = asyncio.create_task(self._monitor_loop())
+        if resume_ids and settings.AUTO_RESUME_SERVERS:
+            logger.info(f"Auto-resuming {len(resume_ids)} server(s) from the previous host run: {resume_ids}")
+            for sid in resume_ids:
+                try:
+                    await self._console_log(sid, "[cyber/INFO]: Host restarted — auto-resuming server from its saved state.")
+                    await self.request_start(sid)
+                except Exception as e:
+                    logger.warning(f"Auto-resume skipped for {sid}: {e}")
         logger.info(f"Cyber Host manager online with {settings.MAX_CONCURRENT_SERVERS} start-slot(s).")
 
     async def shutdown(self) -> None:
@@ -373,6 +388,7 @@ class ServerManager:
                 return
             row.address = address
             row.port = port
+            state.port = port  # recorded so concurrent starts avoid this port
             row.status = ServerStatus.STARTING
             row.status_detail = f"Starting {software} {mc_version}..."
             row.last_started = utcnow()
@@ -426,6 +442,7 @@ class ServerManager:
                 if row:
                     row.status = ServerStatus.ONLINE
                     row.status_detail = "Server is online"
+                    row.auto_start = True  # desired state: resume after host restart
             await self._console_log(server_id, f"[cyber/INFO]: Server address: {address}")
         except Exception as e:
             state.runtime = None
@@ -468,6 +485,7 @@ class ServerManager:
                 await self._console_log(server_id, f"[cyber/WARN]: Auto-backup failed: {e}")
         if state:
             state.started_at = None
+            state.port = None
             state.config_dirty = False
         with get_db() as db:
             row = self._db_get(db, server_id)
@@ -476,6 +494,10 @@ class ServerManager:
                 row.status_detail = "Server is offline"
                 row.address = None
                 row.port = None
+                if reason != "host shutdown":
+                    # A deliberate stop clears the resume flag; a host shutdown
+                    # keeps it so the server auto-resumes on the next boot.
+                    row.auto_start = False
         await self._console_log(server_id, "[cyber/INFO]: Server stopped. World saved.")
 
     async def restart_server(self, server_id: str) -> None:
@@ -934,6 +956,7 @@ class ServerManager:
             "whitelist_enabled": row.whitelist_enabled,
             "ram_mb": row.ram_mb,
             "auto_backup": row.auto_backup,
+            "auto_start": bool(getattr(row, "auto_start", False)),
             "jar_ready": row.jar_ready,
             "playtime_seconds": row.playtime_seconds or 0,
             "uptime_seconds": uptime_seconds,

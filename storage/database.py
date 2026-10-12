@@ -40,6 +40,7 @@ _ADDITIVE_COLUMNS = [
     ("users", "role", "VARCHAR(32) DEFAULT 'user'"),
     ("users", "telegram_linked", "BOOLEAN DEFAULT 0"),
     ("servers", "description", "VARCHAR(256)"),
+    ("servers", "auto_start", "BOOLEAN DEFAULT 0"),
 ]
 
 def _migrate_additive() -> None:

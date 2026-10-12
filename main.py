@@ -13,7 +13,11 @@ def main():
         host=settings.HOST,
         port=settings.PORT,
         log_level=settings.LOG_LEVEL.lower(),
-        reload=settings.DEBUG
+        reload=settings.DEBUG,
+        # SSE console streams never end on their own; without this bound a
+        # single open dashboard tab makes SIGTERM (systemctl stop/restart)
+        # hang forever, blocking the auto-resume-on-boot flow.
+        timeout_graceful_shutdown=10
     )
 
 if __name__ == "__main__":

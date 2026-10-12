@@ -82,6 +82,8 @@ class Settings(BaseSettings):
     SERVER_JAR_MAX_MB: int = int(os.environ.get("SERVER_JAR_MAX_MB", "300"))
     SERVER_IDLE_SHUTDOWN_MINUTES: int = int(os.environ.get("SERVER_IDLE_SHUTDOWN_MINUTES", "0"))
     SERVER_PUBLIC_HOST: Optional[str] = os.environ.get("SERVER_PUBLIC_HOST", None)
+    # Resume servers that were online before the last shutdown/reboot
+    AUTO_RESUME_SERVERS: bool = os.environ.get("AUTO_RESUME_SERVERS", "true").lower() in ("true", "1")
     
     # Storage & Paths
     DATA_DIR: Path = Path(os.environ.get("DATA_DIR", "./data")).resolve()

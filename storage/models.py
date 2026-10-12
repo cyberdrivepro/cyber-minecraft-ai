@@ -216,6 +216,7 @@ class Server(Base):
     ram_mb = Column(Integer, default=1024)
     auto_backup = Column(Boolean, default=True)
     jar_ready = Column(Boolean, default=False)
+    auto_start = Column(Boolean, default=False)  # desired state: resume on host restart
     playtime_seconds = Column(Integer, default=0)
     last_started = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=utcnow)

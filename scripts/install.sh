@@ -7,7 +7,8 @@
 #   chmod +x scripts/install.sh
 #   ./scripts/install.sh
 #
-# Noninteractive mode:  ./scripts/install.sh --noninteractive
+# Noninteractive mode is the default; every question is answered "yes"
+# automatically. Pass --interactive to re-enable prompts.
 # Supported: Ubuntu / Debian and compatible distributions; generic Linux with
 # python3.9+. Docker Desktop / Hugging Face Spaces use Dockerfile instead.
 # ============================================================================
@@ -15,8 +16,8 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LOG_FILE="${REPO_ROOT}/install.log"
-NONINTERACTIVE=false
-[[ "${1:-}" == "--noninteractive" ]] && NONINTERACTIVE=true
+NONINTERACTIVE=true
+[[ "${1:-}" == "--interactive" ]] && NONINTERACTIVE=false
 
 log()  { echo -e "\033[36m[install]\033[0m $*"; }
 ok()   { echo -e "\033[32m[ok]\033[0m $*"; }
@@ -29,10 +30,11 @@ SUDO=""
 if [[ "$(id -u)" -ne 0 ]] && command -v sudo >/dev/null 2>&1; then SUDO="sudo"; fi
 
 prompt() {
-    # prompt "question" -> echoes "y"/"n"; auto-n in noninteractive mode
-    if $NONINTERACTIVE; then echo "n"; return; fi
-    read -r -p "$1 [y/N] " answer </dev/tty
-    [[ "$answer" == "y" || "$answer" == "Y" ]] && echo "y" || echo "n"
+    # prompt "question" -> echoes "y"/"n"; auto-YES in the default fully
+    # automatic mode, real question only with --interactive
+    if $NONINTERACTIVE; then echo "y"; return; fi
+    read -r -p "$1 [Y/n] " answer </dev/tty
+    [[ "$answer" == "n" || "$answer" == "N" ]] && echo "n" || echo "y"
 }
 
 log "Cyber Minecraft AI installer starting in ${REPO_ROOT}"
@@ -60,20 +62,35 @@ if [[ "$PKG" == "apt" ]]; then
     ok "System packages installed"
 fi
 
+# --------------------------------------------------------------- disk space
+FREE_MB="$(df -Pm "$REPO_ROOT" | awk 'NR==2 {print $4}')"
+if [[ "$FREE_MB" -lt 5120 ]]; then
+    warn "Only ${FREE_MB} MB free on this disk. Real Java servers and worlds need space; the AI stack can fail to install below ~5 GB (a CPU-only fallback is attempted automatically)."
+fi
+
 # ------------------------------------------------------------------ java 21
-if ! command -v java >/dev/null 2>&1; then
-    if [[ "$PKG" == "apt" ]] && [[ "$(uname -m)" != "armv7l" ]]; then
-        if [[ "$(prompt 'Java 21 is required for real Minecraft server hosting and Fabric mod builds. Install openjdk-21 now?')" == "y" ]]; then
-            log "Installing OpenJDK 21..."
-            $SUDO apt-get install -y -qq openjdk-21-jdk-headless >/dev/null && ok "Java 21 installed" || warn "OpenJDK 21 install failed — install Java manually (https://adoptium.net)"
-        else
-            warn "Skipping Java — the platform will run in embedded-console mode and Bedrock add-on builds only"
-        fi
-    else
-        warn "Java not found and no automatic install for this distribution. Install Java 17/21 from https://adoptium.net"
-    fi
+java_major() {
+    java -version 2>&1 | head -1 | sed -n 's/.*version "\([0-9]*\).*/\1/p'
+}
+
+JAVA_VER=""
+if command -v java >/dev/null 2>&1; then
+    JAVA_VER="$(java_major || true)"
+fi
+if [[ -n "$JAVA_VER" ]] && [[ "$JAVA_VER" -ge 17 ]]; then
+    ok "Java ${JAVA_VER} already present — no installation needed: $(java -version 2>&1 | head -1)"
 else
-    ok "Java already present: $(java -version 2>&1 | head -1)"
+    if [[ -n "$JAVA_VER" ]]; then
+        log "Java ${JAVA_VER} detected but Java 17/21 is required for real Minecraft server hosting — installing OpenJDK 21..."
+    else
+        log "Java 21 is required for real Minecraft server hosting and Fabric mod builds — installing OpenJDK 21..."
+    fi
+    if [[ "$PKG" == "apt" ]] && [[ "$(uname -m)" != "armv7l" ]]; then
+        $SUDO apt-get install -y -qq openjdk-21-jdk-headless >/dev/null && ok "Java 21 installed" \
+            || warn "OpenJDK 21 install failed — install Java manually (https://adoptium.net)"
+    else
+        warn "No automatic Java install for this distribution. Install Java 17/21 from https://adoptium.net"
+    fi
 fi
 
 # --------------------------------------------------------------- python venv
@@ -94,8 +111,22 @@ fi
 source .venv/bin/activate
 log "Installing Python dependencies (this can take a few minutes)..."
 pip install --upgrade pip >/dev/null
-pip install -r requirements.txt
-ok "Python dependencies installed"
+# Install the CPU-only torch wheel FIRST so the CUDA variant (~2.5 GB of
+# nvidia/cuda wheels) is never downloaded — this is what fills small disks.
+# The platform runs its AI features on CPU unless a GPU is actually present.
+if ! pip install --only-binary=:all: torch --index-url https://download.pytorch.org/whl/cpu >/dev/null 2>&1; then
+    warn "CPU torch wheel unavailable for ${PYVER} — falling back to the default pip index"
+fi
+if pip install -r requirements.txt; then
+    ok "Python dependencies installed"
+else
+    # Self-healing: small disks / offline AI stacks can retry without the
+    # heavy ML extras (torch/transformers). The heuristic planner covers them.
+    warn "Full dependency install failed — retrying without the heavy ML extras (torch, transformers, accelerate)..."
+    grep -vE '^(torch|transformers|accelerate|safetensors)' requirements.txt > /tmp/cma-requirements-lite.txt
+    pip install -r /tmp/cma-requirements-lite.txt
+    ok "Python dependencies installed (lite mode — local AI models disabled, heuristic AI planner active)"
+fi
 
 # --------------------------------------------------------------- environment
 if [[ ! -f .env ]]; then

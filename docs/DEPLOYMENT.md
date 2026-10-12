@@ -9,10 +9,27 @@
 ## Linux VPS (systemd)
 
 ```bash
-./scripts/install.sh            # interactive; installs deps, Java (optional), .env, DB
-# choose the systemd option when prompted, then:
+./scripts/install.sh            # fully automatic (zero prompts): deps, Java 21 if missing, .env, DB, systemd
+# re-enable questions with:
+./scripts/install.sh --interactive
 sudo systemctl status cyber-minecraft-ai
 ```
+
+The installer is fully automatic by default: it installs OpenJDK 21 whenever Java 17/21 is
+missing, answers "yes" to the systemd service, and installs the CPU-only torch wheel first
+so small disks never fill up with ~2.5 GB of CUDA packages. If the disk still cannot fit
+the ML stack, it retries without torch/transformers (the heuristic AI planner stays active).
+
+### Data persistence & auto-resume across VPS moves
+
+All state lives in `DATA_DIR` (default `./data`): the SQLite database, every server's world,
+mods, plugins, properties and backups. Copy or mount this directory to migrate to a new VPS:
+
+1. Stop the platform (`systemctl stop cyber-minecraft-ai`) and copy `data/` to the new host.
+2. Clone the repo on the new VPS and run `./scripts/install.sh` (an existing `.env` is preserved).
+3. Start the platform — servers that were online before the shutdown are **auto-resumed**
+   (each server that reaches `online` sets its `auto_start` flag; a deliberate stop clears it).
+   Set `AUTO_RESUME_SERVERS=false` in `.env` to disable.
 
 The service restarts on failure (`Restart=on-failure`), caps memory (`MemoryMax=2G`) and
 logs to journald: `journalctl -u cyber-minecraft-ai -f`.
