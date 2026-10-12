@@ -1,0 +1,115 @@
+{% extends "layout.html" %}
+{% block title %}AI Mod Studio — {{ APP_NAME }}{% endblock %}
+{% block nav_ai %}active{% endblock %}
+{% block pagetitle %}AI Mod &amp; Asset Studio{% endblock %}
+{% block content %}
+<div class="grid cols-4" style="margin-bottom:18px">
+    <div class="card"><div class="stat-value">{{ projects|length }}</div><div class="stat-label">Recent projects</div></div>
+    <div class="card"><div class="stat-value">{{ ai.provider }}</div><div class="stat-label">Active AI provider</div></div>
+    <div class="card"><div class="stat-value">{{ 'loaded' if ai.is_loaded else 'unloaded' }}</div><div class="stat-label">Local model state</div></div>
+    <div class="card"><div class="stat-value">{{ ai.device }}</div><div class="stat-label">Compute device</div></div>
+</div>
+
+<div class="grid cols-2" style="margin-bottom:18px">
+    <div class="card">
+        <h3>AI providers configured</h3>
+        <div id="providerList" class="muted">Loading...</div>
+        <div class="row" style="margin-top:14px">
+            <button class="btn small" onclick="aiLoad()">Load local model</button>
+            <button class="btn small" onclick="aiUnload()">Unload model</button>
+        </div>
+        <p class="muted" style="font-size:11.5px;margin-top:10px">
+            Loading a local model downloads it from Hugging Face and consumes RAM — on small VPS instances keep it unloaded;
+            the planner falls back to the deterministic heuristic parser. External providers activate only when you configure
+            their API keys in the environment.
+        </p>
+    </div>
+    <div class="card">
+        <h3>How mod generation works</h3>
+        <ol style="font-size:13px;line-height:1.9;color:var(--muted);padding-left:18px">
+            <li>Natural-language request → structured spec (Pydantic-validated)</li>
+            <li>Procedural texture and asset generation</li>
+            <li>Deterministic build engine (Bedrock <span class="mono">.mcaddon</span> / Fabric <span class="mono">.jar</span>)</li>
+            <li>Strict validation + up to 3 automatic repair attempts</li>
+            <li>Immutable version history (v1, v2, v3...) with conversational editing</li>
+        </ol>
+        <p class="muted" style="font-size:12px;margin-top:10px">
+            Create and edit mods through the Telegram bot (<span class="mono">/newmod</span>, <span class="mono">/edit</span>)
+            or via the REST API (<span class="mono">/api/projects</span>, <span class="mono">/api/jobs/&#123;id&#125;</span>).
+            The dashboard lists projects and build jobs with live status.
+        </p>
+    </div>
+</div>
+
+<div class="card" style="margin-bottom:18px">
+    <h3>Projects</h3>
+    {% if projects %}
+    <table class="list">
+        <thead><tr><th>Name</th><th>Edition</th><th>Version</th><th>Status</th><th>Updated</th><th></th></tr></thead>
+        <tbody>
+        {% for p in projects %}
+        <tr>
+            <td><strong>{{ p.name }}</strong></td>
+            <td>{{ p.edition }}</td>
+            <td>v{{ p.current_version }}</td>
+            <td><span class="badge muted">{{ p.status }}</span></td>
+            <td class="muted">{{ p.updated_at }}</td>
+            <td><a class="btn small" href="/api/download/{{ p.user_id }}/{{ p.id }}/{{ p.current_version }}" style="text-decoration:none">Download artifact</a></td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty"><div class="big">&#10024;</div>No mod projects yet. Create one through the Telegram bot with /newmod.</div>
+    {% endif %}
+</div>
+
+<div class="card">
+    <h3>Recent build jobs</h3>
+    {% if jobs %}
+    <table class="list">
+        <thead><tr><th>Job</th><th>Project</th><th>Status</th><th>Created</th><th></th></tr></thead>
+        <tbody>
+        {% for j in jobs %}
+        <tr>
+            <td class="mono" style="font-size:12px">{{ j.id[:18] }}…</td>
+            <td class="mono" style="font-size:12px">{{ j.project_id[:18] }}…</td>
+            <td><span class="badge {% if j.status == 'completed' %}ok{% elif j.status == 'failed' %}err{% elif j.status == 'cancelled' %}muted{% else %}warn{% endif %}">{{ j.status }}</span></td>
+            <td class="muted">{{ j.created_at }}</td>
+            <td><button class="btn small" onclick="showJob('{{ j.id }}')">Logs</button></td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty">No build jobs yet.</div>
+    {% endif %}
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+async function loadProviders() {
+    try {
+        const d = await api('/api/ai/providers');
+        const el = document.getElementById('providerList');
+        el.innerHTML = Object.entries(d.providers).map(([k, v]) =>
+            `<div class="row" style="padding:5px 0"><span class="badge ${v ? 'ok' : 'muted'}">${v ? 'configured' : 'not configured'}</span> ${k}</div>`).join('');
+    } catch (e) { document.getElementById('providerList').textContent = e.message; }
+}
+loadProviders();
+async function aiLoad() {
+    try { const r = await api('/api/ai/load', {method: 'POST'}); toast(r.message, r.success ? '' : 'warn'); }
+    catch (e) { toast(e.message, 'err'); }
+}
+async function aiUnload() {
+    try { const r = await api('/api/ai/unload', {method: 'POST'}); toast(r.message); }
+    catch (e) { toast(e.message, 'err'); }
+}
+async function showJob(id) {
+    try {
+        const j = await api('/api/jobs/' + id);
+        alert('Job ' + id + '\n\nStatus: ' + j.status + (j.error_message ? '\nError: ' + j.error_message : '') + '\n\n' + (j.logs || '').slice(-2000));
+    } catch (e) { toast(e.message, 'err'); }
+}
+</script>
+{% endblock %}

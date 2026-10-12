@@ -1,0 +1,48 @@
+{% extends "layout.html" %}
+{% block title %}Download Links — {{ APP_NAME }}{% endblock %}
+{% block nav_links %}active{% endblock %}
+{% block pagetitle %}My Download Links{% endblock %}
+{% block content %}
+<div class="card">
+    <h3>Active &amp; recent download links</h3>
+    <p class="muted" style="font-size:12.5px;margin-bottom:14px">
+        Secure tokenized links for worlds and backups. Links expire automatically and can be revoked at any time.
+        Anyone holding a link can download the file until then — revoke immediately if a link leaks.
+    </p>
+    <table class="list" id="linkTable">
+        <thead><tr><th>Token</th><th>Type</th><th>Downloads</th><th>Expires</th><th>Status</th><th></th></tr></thead>
+        <tbody></tbody>
+    </table>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+async function load() {
+    try {
+        const links = await api('/api/links');
+        document.querySelector('#linkTable tbody').innerHTML = links.map(l => {
+            const state = l.revoked ? '<span class="badge err">revoked</span>'
+                : l.expired ? '<span class="badge muted">expired</span>'
+                : '<span class="badge ok">active</span>';
+            return `<tr>
+                <td class="mono" style="font-size:12px">${esc(l.token.slice(0, 12))}…</td>
+                <td>${esc(l.kind)}</td>
+                <td>${l.download_count}${l.max_downloads ? ' / ' + l.max_downloads : ''}</td>
+                <td class="muted" style="font-size:12px">${esc(l.expires_at.replace('T', ' ').slice(0, 16))}</td>
+                <td>${state}</td>
+                <td class="row" style="justify-content:flex-end">
+                    ${!l.revoked && !l.expired ? `<a class="btn small" href="/api/dl/${esc(l.token)}" style="text-decoration:none">Open</a>` : ''}
+                    ${!l.revoked ? `<button class="btn small danger" onclick="revoke('${esc(l.token)}')">Revoke</button>` : ''}
+                </td></tr>`;
+        }).join('') || '<tr><td colspan="6" class="empty">No download links yet. Create them from a server\'s Worlds or Backups tab.</td></tr>';
+    } catch (e) { toast(e.message, 'err'); }
+}
+async function revoke(token) {
+    if (!confirmDialog('Revoke this download link?')) return;
+    try { await api('/api/links/' + token, {method: 'DELETE'}); toast('Link revoked'); load(); }
+    catch (e) { toast(e.message, 'err'); }
+}
+load();
+</script>
+{% endblock %}

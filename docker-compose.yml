@@ -1,0 +1,36 @@
+services:
+  cyber-minecraft-ai:
+    build: .
+    container_name: cyber-minecraft-ai
+    restart: unless-stopped
+    ports:
+      - "7860:7860"
+    # Optional: pass your .env into the container (TELEGRAM_BOT_TOKEN etc.).
+    # Uncomment after creating .env (cp .env.example .env):
+    # env_file:
+    #   - .env
+    environment:
+      - DATA_DIR=/data
+      - OUTPUT_DIR=/data/outputs
+      - HOST=0.0.0.0
+      - PORT=7860
+    volumes:
+      # Durable state: worlds, backups, database, artifacts.
+      # On Hugging Face Spaces or ephemeral hosts this container-local disk
+      # does NOT survive rebuilds — mount external storage for production.
+      - cyber_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:7860/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    # Resource ceilings: adjust to your host. Minecraft servers and local AI
+    # models are memory-hungry; 2 GB is a workable minimum without local models.
+    deploy:
+      resources:
+        limits:
+          memory: 4g
+
+volumes:
+  cyber_data:

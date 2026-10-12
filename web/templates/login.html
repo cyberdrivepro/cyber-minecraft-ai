@@ -1,0 +1,42 @@
+{% extends "layout.html" %}
+{% block title %}Sign in — {{ APP_NAME }}{% endblock %}
+{% block content %}
+<div style="max-width:400px;margin:8vh auto;">
+    <div class="card" style="padding:30px;">
+        <div class="brand" style="padding:0 0 16px;justify-content:center">
+            <div class="brand-logo">C</div>
+            <div>
+                <div class="brand-name">CYBER MINECRAFT AI</div>
+                <div class="brand-sub">{{ APP_SUBTITLE }}</div>
+            </div>
+        </div>
+        <h2 style="font-size:18px;margin-bottom:18px;">Sign in</h2>
+        <div class="field"><label>Username</label><input type="text" id="username" autocomplete="username"></div>
+        <div class="field"><label>Password</label><input type="password" id="password" autocomplete="current-password"
+            onkeydown="if(event.key==='Enter')doLogin()"></div>
+        <button class="btn primary" style="width:100%" id="loginBtn" onclick="doLogin()">Sign in</button>
+        <p class="muted" style="font-size:12.5px;margin-top:14px;text-align:center">
+            No account? <a href="/register">Register</a>
+        </p>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+async function doLogin() {
+    const btn = document.getElementById('loginBtn');
+    btn.disabled = true;
+    try {
+        const body = await api('/api/auth/login', {method: 'POST', body: JSON.stringify({
+            username: document.getElementById('username').value,
+            password: document.getElementById('password').value
+        })});
+        toast('Welcome back, ' + body.username);
+        window.location.href = '/';
+    } catch (e) {
+        toast(e.message, 'err');
+        btn.disabled = false;
+    }
+}
+</script>
+{% endblock %}

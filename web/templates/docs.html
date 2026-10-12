@@ -1,0 +1,57 @@
+{% extends "layout.html" %}
+{% block title %}Documentation — {{ APP_NAME }}{% endblock %}
+{% block nav_docs %}active{% endblock %}
+{% block pagetitle %}Documentation &amp; Help{% endblock %}
+{% block content %}
+<div class="grid cols-2">
+    <div class="card">
+        <h3>Quick start</h3>
+        <ol style="font-size:13px;line-height:1.9;color:var(--muted);padding-left:18px">
+            <li>Create a server under <a href="/servers/new">Create Server</a></li>
+            <li>Upload real server software on the server's page (a <span class="mono">server.jar</span> for Java, or the official Bedrock <span class="mono">.zip</span> for Bedrock) — without an upload, servers run the embedded console runtime with real world/state files but no game protocol</li>
+            <li>Press <strong>Start</strong>, wait for the queue, get your address</li>
+            <li>Invite friends using the <strong>Networking</strong> tab address or share dashboard access under <strong>Sharing</strong></li>
+        </ol>
+        <h3 style="margin-top:18px">Console commands</h3>
+        <p class="muted" style="font-size:12.5px;line-height:1.8">
+            <span class="mono">help</span> · <span class="mono">list</span> · <span class="mono">say &lt;msg&gt;</span> ·
+            <span class="mono">op / deop &lt;player&gt;</span> · <span class="mono">whitelist add|remove|list|on|off</span> ·
+            <span class="mono">ban / pardon &lt;player&gt;</span> · <span class="mono">kick &lt;player&gt;</span> ·
+            <span class="mono">time set day|night</span> · <span class="mono">weather clear|rain|thunder</span> ·
+            <span class="mono">difficulty &lt;level&gt;</span> · <span class="mono">seed</span> · <span class="mono">save-all</span> ·
+            <span class="mono">stop</span>
+        </p>
+    </div>
+    <div class="card">
+        <h3>Hosting modes explained</h3>
+        <p style="font-size:13px;line-height:1.8;color:var(--muted)">
+            <strong>Embedded console runtime</strong> (default): manages real world files, properties, ops/whitelist/bans and the
+            lifecycle, and implements the standard console command set in-process. It does <em>not</em> speak the Minecraft
+            network protocol, so clients cannot join until real server software is uploaded.<br><br>
+            <strong>Real Java runtime</strong>: once a server jar is uploaded and Java 17/21 is installed, the platform launches
+            the actual process (<span class="mono">java -jar server.jar nogui</span>) and streams its real console output.
+            Players join with the address from the Networking tab.<br><br>
+            <strong>Real Bedrock runtime</strong>: upload the official Bedrock Dedicated Server zip; the platform extracts and
+            runs <span class="mono">bedrock_server</span> (UDP).
+        </p>
+    </div>
+    <div class="card">
+        <h3>Downloads &amp; links</h3>
+        <p class="muted" style="font-size:12.5px;line-height:1.8">
+            World exports and backups generate secure tokens valid for a limited time. Anyone with the link can download
+            until it expires or is revoked — treat shared links like passwords. Manage your links from
+            <a href="/links">Download Links</a>.
+        </p>
+    </div>
+    <div class="card">
+        <h3>Troubleshooting</h3>
+        <p class="muted" style="font-size:12.5px;line-height:1.8">
+            <strong>Server won't start?</strong> Check that Java is installed (System Diagnostics shows it), the EULA is
+            accepted, and you are under the concurrency limit.<br>
+            <strong>Friends can't connect?</strong> Run the Networking tab diagnostics. If SERVER_PUBLIC_HOST is not set the
+            platform cannot verify public reachability — see docs/DEPLOYMENT.md for tunnel and DNS options.<br>
+            <strong>Console shows "embedded console runtime"?</strong> No server software uploaded yet.
+        </p>
+    </div>
+</div>
+{% endblock %}

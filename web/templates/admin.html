@@ -1,0 +1,69 @@
+{% extends "layout.html" %}
+{% block title %}Admin — {{ APP_NAME }}{% endblock %}
+{% block nav_admin %}active{% endblock %}
+{% block pagetitle %}Admin Control Center{% endblock %}
+{% block content %}
+<div class="grid cols-4" style="margin-bottom:18px">
+    <div class="card"><div class="stat-value" id="stUsers">—</div><div class="stat-label">Accounts</div></div>
+    <div class="card"><div class="stat-value" id="stServers">—</div><div class="stat-label">Servers (online / error)</div></div>
+    <div class="card"><div class="stat-value" id="stBuilds">—</div><div class="stat-label">Builds (failed)</div></div>
+    <div class="card"><div class="stat-value" id="stLinks">—</div><div class="stat-label">Active download links</div></div>
+</div>
+<div class="grid cols-2" style="margin-bottom:18px">
+    <div class="card">
+        <h3>Registered accounts</h3>
+        <table class="list" id="userTable"><thead><tr><th>User</th><th>Role</th><th>Created</th><th></th></tr></thead><tbody></tbody></table>
+    </div>
+    <div class="card">
+        <h3>Platform status</h3>
+        <table class="list"><tbody id="platTable"></tbody></table>
+    </div>
+</div>
+<div class="card">
+    <h3>Security &amp; audit log</h3>
+    <table class="list" id="auditTable">
+        <thead><tr><th>Time</th><th>User</th><th>Action</th><th>Target</th><th>Detail</th></tr></thead><tbody></tbody>
+    </table>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+async function load() {
+    try {
+        const d = await api('/api/admin/overview');
+        document.getElementById('stUsers').textContent = d.users;
+        document.getElementById('stServers').textContent = d.servers_online + ' / ' + d.servers_error;
+        document.getElementById('stBuilds').textContent = d.builds + ' / ' + d.builds_failed;
+        document.getElementById('stLinks').textContent = d.active_links;
+        document.querySelector('#platTable').innerHTML = [
+            ['Projects', d.projects], ['Server shares', d.shares], ['Enabled schedules', d.schedules],
+            ['Build queue waiting', d.queue_length]
+        ].map(r => `<tr><td class="muted">${r[0]}</td><td>${r[1]}</td></tr>`).join('');
+        document.querySelector('#auditTable tbody').innerHTML = d.recent_audit.map(a => `<tr>
+            <td class="mono" style="white-space:nowrap;font-size:12px">${esc((a.created_at || '').replace('T', ' ').slice(0, 16))}</td>
+            <td class="mono" style="font-size:12px">${esc(a.user_id || '')}</td>
+            <td>${esc(a.action)}</td>
+            <td class="mono" style="font-size:12px">${esc(a.target || '')}</td>
+            <td class="muted" style="font-size:12px;max-width:220px;overflow:hidden;text-overflow:ellipsis">${esc(a.detail || '')}</td></tr>`).join('');
+        await loadUsers();
+    } catch (e) { toast(e.message, 'err'); }
+}
+async function loadUsers() {
+    try {
+        const users = await api('/api/admin/users');
+        document.querySelector('#userTable tbody').innerHTML = users.map(u => `<tr>
+            <td class="mono" style="font-size:12px">${esc(u.username || u.id)}</td>
+            <td><span class="badge ${u.role === 'admin' ? 'info' : 'muted'}">${esc(u.role)}</span></td>
+            <td class="muted" style="font-size:12px">${esc((u.created_at || '').slice(0, 16).replace('T', ' '))}</td>
+            <td><button class="btn small" onclick="toggleRole('${esc(u.id)}', '${u.role === 'admin' ? 'user' : 'admin'}')">Make ${u.role === 'admin' ? 'user' : 'admin'}</button></td></tr>`).join('');
+    } catch (e) {}
+}
+async function toggleRole(id, role) {
+    if (!confirmDialog('Change role of ' + id + ' to ' + role + '?')) return;
+    try { await api(`/api/admin/users/${id}/role`, {method: 'POST', body: JSON.stringify({role})}); toast('Role updated'); load(); }
+    catch (e) { toast(e.message, 'err'); }
+}
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+load();
+</script>
+{% endblock %}

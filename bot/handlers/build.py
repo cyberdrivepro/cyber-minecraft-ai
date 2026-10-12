@@ -1,6 +1,8 @@
 """Build, download, status, and log handlers."""
 import uuid
 from pathlib import Path
+from typing import Union
+
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery, FSInputFile
 from aiogram.filters import Command
@@ -174,7 +176,7 @@ async def _show_logs(message: Message, project_id: str, user_id: str):
 
 @router.message(Command("status"))
 @router.callback_query(F.data == "btn_build_queue")
-async def handle_status_cmd(event: Message | CallbackQuery):
+async def handle_status_cmd(event: Union[Message, CallbackQuery]):
     """Display real-time build queue metrics."""
     qsize = job_manager.queue.qsize()
     active_count = len(job_manager.active_jobs)

@@ -1,6 +1,7 @@
 """ServerManager: creation, start queue, console, players, properties, backups and files
 for hosted Minecraft servers (Aternos-style control plane)."""
 import asyncio
+import os
 import random
 import shutil
 import socket
@@ -18,6 +19,7 @@ from storage.models import Server as DBServer, ServerBackup as DBServerBackup
 from servers.runtime import (
     EmbeddedRuntime,
     JavaProcessRuntime,
+    BedrockProcessRuntime,
     RuntimeContext,
     find_java_executable,
     read_state_list,
@@ -38,20 +40,30 @@ class ServerStatus:
     STOPPING = "stopping"
     ERROR = "error"
 
+def _int_in(lo: int, hi: int):
+    """Validator factory accepting ints or numeric strings (form inputs arrive as strings)."""
+    def _validate(v):
+        try:
+            n = int(v)
+        except (TypeError, ValueError):
+            return None
+        return str(n) if lo <= n <= hi else None
+    return _validate
+
 # Properties that may be edited through the API, mapped to validator callables.
 EDITABLE_PROPERTIES: Dict[str, Any] = {
     "motd": lambda v: str(v)[:128],
     "gamemode": lambda v: v if v in ("survival", "creative", "adventure", "spectator") else None,
     "difficulty": lambda v: v if v in ("peaceful", "easy", "normal", "hard") else None,
-    "max-players": lambda v: str(v) if isinstance(v, int) and 1 <= v <= 200 else None,
-    "pvp": lambda v: "true" if bool(v) else "false",
-    "white-list": lambda v: "true" if bool(v) else "false",
+    "max-players": _int_in(1, 200),
+    "pvp": lambda v: "true" if bool(v) and v != "false" else "false",
+    "white-list": lambda v: "true" if bool(v) and v != "false" else "false",
     "level-seed": lambda v: str(v)[:64],
-    "view-distance": lambda v: str(v) if isinstance(v, int) and 3 <= v <= 32 else None,
-    "online-mode": lambda v: "true" if bool(v) else "false",
-    "allow-nether": lambda v: "true" if bool(v) else "false",
-    "allow-flight": lambda v: "true" if bool(v) else "false",
-    "spawn-monsters": lambda v: "true" if bool(v) else "false",
+    "view-distance": _int_in(3, 32),
+    "online-mode": lambda v: "true" if bool(v) and v != "false" else "false",
+    "allow-nether": lambda v: "true" if bool(v) and v != "false" else "false",
+    "allow-flight": lambda v: "true" if bool(v) and v != "false" else "false",
+    "spawn-monsters": lambda v: "true" if bool(v) and v != "false" else "false",
 }
 
 class HostedServerState:
@@ -167,7 +179,13 @@ class ServerManager:
         mc_version: str,
         motd: str = "A Cyber Host server",
         level_seed: str = "",
-        eula_accepted: bool = False
+        eula_accepted: bool = False,
+        description: str = "",
+        gamemode: str = "survival",
+        difficulty: str = "normal",
+        max_players: int = 20,
+        pvp: bool = True,
+        whitelist_enabled: bool = False,
     ) -> DBServer:
         """Create a persistent server record and its on-disk skeleton."""
         if software not in SERVER_SOFTWARE:
@@ -178,6 +196,12 @@ class ServerManager:
             raise ValueError("You must accept the Minecraft EULA to create a server.")
         if not name or not name.strip():
             raise ValueError("Server name is required.")
+        if gamemode not in ("survival", "creative", "adventure"):
+            raise ValueError("Gamemode must be survival, creative or adventure.")
+        if difficulty not in ("peaceful", "easy", "normal", "hard"):
+            raise ValueError("Difficulty must be peaceful, easy, normal or hard.")
+        if not isinstance(max_players, int) or not (1 <= max_players <= 200):
+            raise ValueError("Max players must be between 1 and 200.")
         
         with get_db() as db:
             owned = db.query(DBServer).filter(DBServer.owner_id == owner_id).count()
@@ -188,6 +212,7 @@ class ServerManager:
                 id=server_id,
                 owner_id=owner_id,
                 name=name.strip()[:128],
+                description=(description or "").strip()[:256] or None,
                 software=software,
                 mc_version=mc_version,
                 motd=(motd or "A Cyber Host server")[:128],
@@ -195,7 +220,12 @@ class ServerManager:
                 eula_accepted=True,
                 status=ServerStatus.OFFLINE,
                 status_detail="Server is offline",
-                ram_mb=settings.SERVER_RAM_MB
+                ram_mb=settings.SERVER_RAM_MB,
+                gamemode=gamemode,
+                difficulty=difficulty,
+                max_players=max_players,
+                pvp=bool(pvp),
+                whitelist_enabled=bool(whitelist_enabled),
             )
             db.add(row)
         
@@ -364,7 +394,18 @@ class ServerManager:
             ram_mb=ram_mb,
             properties=properties
         )
-        if jar_ready and java_available:
+        if software == "bedrock":
+            if (self.get_server_dir(server_id) / "bedrock_server").exists() or \
+               (self.get_server_dir(server_id) / "bedrock_server.exe").exists():
+                runtime = BedrockProcessRuntime(ctx, lambda line: self._console_log(server_id, line))
+                await self._console_log(server_id, "[cyber/INFO]: Runtime selected: real Bedrock Dedicated Server process")
+            else:
+                runtime = EmbeddedRuntime(ctx, lambda line: self._console_log(server_id, line))
+                await self._console_log(
+                    server_id,
+                    "[cyber/INFO]: Runtime selected: embedded console runtime (upload the official Bedrock Dedicated Server zip for real hosting)."
+                )
+        elif jar_ready and java_available:
             runtime = JavaProcessRuntime(ctx, lambda line: self._console_log(server_id, line))
             await self._console_log(server_id, "[cyber/INFO]: Runtime selected: real Java process (uploaded server.jar)")
         else:
@@ -708,6 +749,139 @@ class ServerManager:
         logger.info(f"server.jar uploaded for {server_id} ({size // (1024 * 1024)} MB)")
         return size
 
+    def save_uploaded_bedrock_zip(self, server_id: str, src_path: Path) -> int:
+        """Extract an uploaded official Bedrock Dedicated Server zip into the server dir."""
+        with get_db() as db:
+            row = self._db_get(db, server_id)
+            if not row or row.software != "bedrock":
+                raise ValueError("Bedrock server software can only be uploaded to Bedrock servers.")
+        sdir = self.get_server_dir(server_id)
+        safe_extract_zip(src_path, sdir)
+        binary = "bedrock_server.exe" if os.name == "nt" else "bedrock_server"
+        if not (sdir / binary).exists():
+            raise ValueError("The zip does not contain a bedrock_server binary. Upload the official BDS archive unmodified.")
+        try:
+            (sdir / binary).chmod(0o755)
+        except OSError:
+            pass
+        size = src_path.stat().st_size
+        logger.info(f"Bedrock server zip uploaded for {server_id} ({size // (1024 * 1024)} MB)")
+        return size
+
+    # ---------------------------------------------------------------- worlds
+    _WORLD_MARKERS = ("level.dat", "db", "levelname.txt")
+
+    def list_worlds(self, server_id: str) -> List[Dict[str, Any]]:
+        """Discover world directories (Java or Bedrock) inside the server root."""
+        base = self.get_server_dir(server_id)
+        with get_db() as db:
+            row = self._db_get(db, server_id)
+            active = row.world_name if row else "world"
+        worlds: List[Dict[str, Any]] = []
+        for entry in sorted(base.iterdir(), key=lambda p: p.name.lower()):
+            if not entry.is_dir():
+                continue
+            if entry.name in ("backups", "logs", "plugins", "mods", "cache", "config"):
+                continue
+            is_active = entry.name == active
+            # A world folder must contain world data; the active world is always listed.
+            if not is_active and not any((entry / marker).exists() for marker in self._WORLD_MARKERS):
+                continue
+            size = sum(f.stat().st_size for f in entry.rglob("*") if f.is_file())
+            stat = entry.stat()
+            worlds.append({
+                "name": entry.name,
+                "active": is_active,
+                "size_bytes": size,
+                "modified": datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M"),
+            })
+        return worlds
+
+    def import_world_zip(self, server_id: str, src_path: Path, world_name: str) -> str:
+        """Import an uploaded world archive into the server root as `world_name`."""
+        world_name = world_name.strip()[:48]
+        if not world_name or not world_name.replace("_", "").replace("-", "").replace(" ", "").isalnum():
+            raise ValueError("World name must contain only letters, digits, dashes and underscores.")
+        with get_db() as db:
+            row = self._db_get(db, server_id)
+            if not row:
+                raise ValueError("Server not found")
+            if row.status not in (ServerStatus.OFFLINE, ServerStatus.ERROR):
+                raise ValueError("Stop the server before importing a world.")
+        dest = self.get_server_dir(server_id) / world_name
+        if dest.exists():
+            raise ValueError(f"A folder named '{world_name}' already exists. Choose another name.")
+        safe_extract_zip(src_path, dest)
+        # Accept archives that wrap the world in a single top-level folder.
+        children = list(dest.iterdir())
+        if len(children) == 1 and children[0].is_dir() and any(
+            (children[0] / m).exists() for m in self._WORLD_MARKERS
+        ):
+            inner = children[0]
+            tmp = dest.parent / f".import_{uuid.uuid4().hex[:8]}"
+            inner.rename(tmp)
+            shutil.rmtree(dest, ignore_errors=True)
+            tmp.rename(dest)
+        if not any((dest / m).exists() for m in self._WORLD_MARKERS):
+            shutil.rmtree(dest, ignore_errors=True)
+            raise ValueError("The archive does not look like a Minecraft world (no level.dat / db / levelname.txt found).")
+        return world_name
+
+    def export_world_zip(self, server_id: str, world_name: str) -> Optional[Path]:
+        """Zip a world directory for download; returns the archive path."""
+        base = self.get_server_dir(server_id)
+        world = base / world_name
+        validate_safe_path(base, world)
+        if not world.is_dir():
+            return None
+        out_dir = self.get_backups_dir(server_id)
+        stamp = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+        dest = out_dir / f"world-{world_name}-{stamp}.zip"
+        with zipfile.ZipFile(dest, "w", zipfile.ZIP_DEFLATED) as zf:
+            for fpath in sorted(world.rglob("*")):
+                if fpath.is_file():
+                    zf.write(fpath, str(fpath.relative_to(world)))
+        return dest
+
+    def delete_world(self, server_id: str, world_name: str) -> bool:
+        """Delete a non-active world directory (server must be offline)."""
+        with get_db() as db:
+            row = self._db_get(db, server_id)
+            if not row:
+                raise ValueError("Server not found")
+            if row.status not in (ServerStatus.OFFLINE, ServerStatus.ERROR):
+                raise ValueError("Stop the server before deleting a world.")
+            if row.world_name == world_name:
+                raise ValueError("The active world cannot be deleted. Select another world first.")
+        base = self.get_server_dir(server_id)
+        world = base / world_name
+        validate_safe_path(base, world)
+        if not world.is_dir():
+            return False
+        shutil.rmtree(world, ignore_errors=True)
+        return True
+
+    def set_active_world(self, server_id: str, world_name: str) -> str:
+        """Point the server at a different imported world (offline only)."""
+        with get_db() as db:
+            row = self._db_get(db, server_id)
+            if not row:
+                raise ValueError("Server not found")
+            if row.status not in (ServerStatus.OFFLINE, ServerStatus.ERROR):
+                raise ValueError("Stop the server before switching worlds.")
+            base = self.get_server_dir(server_id)
+            world = base / world_name
+            validate_safe_path(base, world)
+            if not world.is_dir():
+                raise ValueError(f"World '{world_name}' does not exist on this server.")
+            previous = row.world_name
+            row.world_name = world_name
+        # Rewrite properties so the next start boots the selected world.
+        with get_db() as db:
+            row = self._db_get(db, server_id)
+            self._write_properties(self.get_server_dir(server_id), self._build_properties(row))
+        return previous
+
     # ------------------------------------------------------------- monitoring
     async def _monitor_loop(self) -> None:
         """Periodic maintenance: playtime accounting and optional idle auto-shutdown."""
@@ -743,6 +917,7 @@ class ServerManager:
             "id": row.id,
             "owner_id": row.owner_id,
             "name": row.name,
+            "description": row.description,
             "software": row.software,
             "mc_version": row.mc_version,
             "status": row.status,
